@@ -1,0 +1,92 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<web-app xmlns="https://jakarta.ee/xml/ns/jakartaee"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="https://jakarta.ee/xml/ns/jakartaee https://jakarta.ee/xml/ns/jakartaee/web-app_6_0.xsd"
+         version="6.0">
+    <display-name>LeaveMgmtAntJDBC</display-name>
+
+    <filter>
+        <filter-name>EncodingFilter</filter-name>
+        <filter-class>com.leavemgmt.filter.EncodingFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>EncodingFilter</filter-name>
+        <url-pattern>/*</url-pattern>
+    </filter-mapping>
+
+    <filter>
+        <filter-name>AuthFilter</filter-name>
+        <filter-class>com.leavemgmt.filter.AuthFilter</filter-class>
+    </filter>
+    <filter-mapping>
+        <filter-name>AuthFilter</filter-name>
+        <url-pattern>/app/*</url-pattern>
+    </filter-mapping>
+
+    <servlet>
+        <servlet-name>LoginServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.LoginServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LoginServlet</servlet-name>
+        <url-pattern>/login</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>LogoutServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.LogoutServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>LogoutServlet</servlet-name>
+        <url-pattern>/logout</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>HomeServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.HomeServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>HomeServlet</servlet-name>
+        <url-pattern>/app/home</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>RequestCreateServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.RequestCreateServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>RequestCreateServlet</servlet-name>
+        <url-pattern>/app/request/create</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>RequestListServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.RequestListServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>RequestListServlet</servlet-name>
+        <url-pattern>/app/request/list</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>ReviewServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.ReviewServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>ReviewServlet</servlet-name>
+        <url-pattern>/app/request/review</url-pattern>
+    </servlet-mapping>
+
+    <servlet>
+        <servlet-name>AgendaServlet</servlet-name>
+        <servlet-class>com.leavemgmt.servlet.AgendaServlet</servlet-class>
+    </servlet>
+    <servlet-mapping>
+        <servlet-name>AgendaServlet</servlet-name>
+        <url-pattern>/app/agenda</url-pattern>
+    </servlet-mapping>
+
+    <welcome-file-list>
+        <welcome-file>index.jsp</welcome-file>
+    </welcome-file-list>
+</web-app>
