@@ -90,14 +90,15 @@ public class AgendaDAO {
     }
 
     /** Chuẩn hóa về approved | pending (các trạng thái khác bỏ qua, coi như work) */
-    private String normalizeStatus(String code) {
-        if (code == null) return "pending";
-        String s = code.trim().toUpperCase();
-        if ("APPROVED".equals(s))   return "approved";
-        if ("INPROGRESS".equals(s)) return "pending";
-        // REJECTED/CANCELLED... -> không màu đặc biệt (work)
-        return "pending";
-    }
+    /** Chuẩn hóa: APPROVED -> "approved", còn lại -> "work" (giữ xanh) */
+private String normalizeStatus(String code) {
+    if (code == null) return "work";
+    String s = code.trim().toUpperCase();
+    if ("APPROVED".equals(s))   return "approved";
+    // INPROGRESS, REJECTED, CANCELLED, v.v... => coi như đang làm (xanh)
+    return "work";
+}
+
 
     /** DTO khoảng nghỉ */
     public static class LeaveSpan {

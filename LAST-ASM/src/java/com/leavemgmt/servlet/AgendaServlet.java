@@ -61,19 +61,18 @@ public class AgendaServlet extends HttpServlet {
                 dao.loadLeavesForTeam(u.getUserId(), Date.valueOf(start), Date.valueOf(end));
 
         for (AgendaDAO.LeaveSpan lv : leaves) {
-            Map<LocalDate, String> row = grid.get(lv.userId);
-            if (row == null) continue;
+    Map<LocalDate, String> row = grid.get(lv.userId);
+    if (row == null) continue;
 
-            LocalDate fromLd = lv.from.toLocalDate(); // sql.Date -> LocalDate
-            LocalDate toLd   = lv.to.toLocalDate();
+    LocalDate fromLd = lv.from.toLocalDate();
+    LocalDate toLd   = lv.to.toLocalDate();
+    LocalDate s = fromLd.isBefore(start) ? start : fromLd;
+    LocalDate e = toLd.isAfter(end) ? end : toLd;
 
-            LocalDate s = fromLd.isBefore(start) ? start : fromLd;
-            LocalDate e = toLd.isAfter(end) ? end : toLd;
-
-            for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
-                if ("approved".equals(lv.normStatus)) {
-                    row.put(d, "leave");                   // đỏ
-                } else if ("pending".equals(lv.normStatus)) {
+    for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
+        if ("approved".equals(lv.normStatus)) {
+            row.put(d, "leave");       // chỉ đỏ khi đã duyệt
+        } else if ("pending".equals(lv.normStatus)) {
                     if (!"leave".equals(row.get(d))) row.put(d, "pending"); // vàng nếu chưa đỏ
                 }
             }
