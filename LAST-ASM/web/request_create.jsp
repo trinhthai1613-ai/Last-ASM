@@ -13,13 +13,23 @@
     .btn { display:inline-block; padding:6px 12px; border:1px solid #444; text-decoration:none; margin-right:8px }
     .btn:hover { background:#eee }
 
-    /* Modal */
-    .modal { position:fixed; inset:0; background:rgba(0,0,0,.35); display:flex; align-items:center; justify-content:center; z-index: 9999; }
-    .modal-box { background:#fff; border-radius:8px; min-width:420px; padding:16px 20px; box-shadow:0 8px 30px rgba(0,0,0,.25) }
+    /* Overlay modal: phủ trắng toàn bộ, che nền hoàn toàn */
+    .modal {
+      position: fixed; left: 0; top: 0; right: 0; bottom: 0;
+      background: #fff;        /* << trắng đục, không nhìn thấy nền */
+      display: flex; align-items: center; justify-content: center;
+      z-index: 9999;
+    }
+    .modal-box {
+      background:#fff; border:1px solid #ddd; border-radius:10px;
+      min-width:420px; padding:16px 20px; box-shadow:0 8px 30px rgba(0,0,0,.25)
+    }
     .modal-title { margin:0 0 8px; font-size:18px }
     .modal-actions { margin-top:14px }
     .badge { color:#0a7a2a; font-weight:bold }
     .hidden { display:none }
+    /* Khóa scroll nền khi mở modal */
+    .no-scroll { overflow: hidden; }
   </style>
 </head>
 <body>
@@ -31,14 +41,55 @@
   boolean justCreated = (createdId != null && !createdId.isEmpty());
 %>
 
+<%-- khóa scroll khi có popup --%>
+<% if (justCreated) { %><script>document.addEventListener('DOMContentLoaded',()=>{document.body.classList.add('no-scroll');});</script><% } %>
+
 <h2>Create Leave Request</h2>
 
 <nav>
   <a class="btn" href="<%=request.getContextPath()%>/app/home">Back</a>
 </nav>
 
-<!-- POPUP THÀNH CÔNG -->
-<div id="successModal" class="modal <%= justCreated ? "" : "hidden" %>">
+<!-- FORM: giữ nguyên, KHÔNG ẩn nữa -->
+<form method="post" action="">
+  <div class="row">
+    <label>Leave Type:&nbsp;</label>
+    <select name="typeId" id="typeId" required>
+      <option value="">-- Select type --</option>
+      <option value="1" data-need-reason="false">ANNUAL - Nghỉ năm</option>
+      <option value="2" data-need-reason="true"  data-reason-opt="MARRIAGE,TRAVEL">MARRIAGE - Nghỉ cưới</option>
+      <option value="3" data-need-reason="false">SICK - Nghỉ ốm</option>
+      <option value="4" data-need-reason="false">UNPAID - Nghỉ không lương</option>
+      <option value="99" data-need-reason="true">OTHER - Khác</option> <!-- OTHER cuối cùng -->
+    </select>
+  </div>
+
+  <div class="row" id="reasonOptRow" style="display:none">
+    <label>Reason option:&nbsp;</label>
+    <select name="reasonOpt" id="reasonOpt"></select>
+  </div>
+
+  <div class="row" id="reasonRow" style="display:none">
+    <label>Reason:</label><br/>
+    <textarea name="reason" id="reason"></textarea>
+  </div>
+
+  <div class="row">
+    <label>From:&nbsp;</label>
+    <input type="date" name="fromDate" id="fromDate" required>
+    &nbsp;&nbsp;
+    <label>To:&nbsp;</label>
+    <input type="date" name="toDate" id="toDate" required>
+  </div>
+
+  <div class="row">
+    <button class="btn" type="submit">Send</button>
+    <a class="btn" href="<%=request.getContextPath()%>/app/home">Back</a>
+  </div>
+</form>
+
+<!-- POPUP THÀNH CÔNG: phủ trắng, chỉ hiển thị popup -->
+<div id="successModal" class="modal <%= justCreated ? "" : "hidden" %>" aria-modal="true" role="dialog">
   <div class="modal-box">
     <h3 class="modal-title">Tạo đơn thành công</h3>
     <p>Request ID: <span class="badge">#<%= createdId %></span></p>
@@ -50,48 +101,8 @@
   </div>
 </div>
 
-<!-- FORM: ẨN khi vừa tạo xong -->
-<div id="formBlock" class="<%= justCreated ? "hidden" : "" %>">
-  <form method="post" action="">
-    <div class="row">
-      <label>Leave Type:&nbsp;</label>
-      <select name="typeId" id="typeId" required>
-        <option value="">-- Select type --</option>
-        <option value="1" data-need-reason="false">ANNUAL - Nghỉ năm</option>
-        <option value="2" data-need-reason="true"  data-reason-opt="MARRIAGE,TRAVEL">MARRIAGE - Nghỉ cưới</option>
-        <option value="3" data-need-reason="false">SICK - Nghỉ ốm</option>
-        <option value="4" data-need-reason="false">UNPAID - Nghỉ không lương</option>
-        <option value="99" data-need-reason="true">OTHER - Khác</option> <!-- OTHER dưới cùng -->
-      </select>
-    </div>
-
-    <div class="row" id="reasonOptRow" style="display:none">
-      <label>Reason option:&nbsp;</label>
-      <select name="reasonOpt" id="reasonOpt"></select>
-    </div>
-
-    <div class="row" id="reasonRow" style="display:none">
-      <label>Reason:</label><br/>
-      <textarea name="reason" id="reason"></textarea>
-    </div>
-
-    <div class="row">
-      <label>From:&nbsp;</label>
-      <input type="date" name="fromDate" id="fromDate" required>
-      &nbsp;&nbsp;
-      <label>To:&nbsp;</label>
-      <input type="date" name="toDate" id="toDate" required>
-    </div>
-
-    <div class="row">
-      <button class="btn" type="submit">Send</button>
-      <a class="btn" href="<%=request.getContextPath()%>/app/home">Back</a>
-    </div>
-  </form>
-</div>
-
 <script>
-  // Ngăn chọn ngày quá khứ
+  // Không chọn ngày đã qua
   const today = new Date(); today.setHours(0,0,0,0);
   const fmt = d => d.toISOString().slice(0,10);
   const fromEl = document.getElementById('fromDate');
@@ -100,7 +111,7 @@
   toEl.min   = fmt(today);
   fromEl.addEventListener('change', () => { if (toEl.value < fromEl.value) toEl.value = fromEl.value; toEl.min = fromEl.value; });
 
-  // Show/Hide reason & reason options theo loại đơn
+  // Show/Hide reason/option theo type
   const typeEl   = document.getElementById('typeId');
   const reasonRow = document.getElementById('reasonRow');
   const reasonOptRow = document.getElementById('reasonOptRow');
@@ -112,13 +123,12 @@
     const needReason = opt.getAttribute('data-need-reason') === 'true';
     const optList = (opt.getAttribute('data-reason-opt') || '').trim();
 
-    reasonRow.style.display   = needReason ? '' : 'none';
+    reasonRow.style.display    = needReason ? '' : 'none';
     reasonOptRow.style.display = (optList ? '' : 'none');
 
     reasonOptEl.innerHTML = '';
     if (optList) {
-      const items = optList.split(',');
-      items.forEach((code) => {
+      optList.split(',').forEach(code => {
         const o = document.createElement('option');
         o.value = code.trim();
         o.textContent = code.trim();
