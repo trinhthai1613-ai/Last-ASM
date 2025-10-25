@@ -9,22 +9,28 @@
 <body style="font-family:Arial, sans-serif">
 <%
   User cur = (User) session.getAttribute("LOGIN_USER");
-  boolean isTopLevel = (cur != null && cur.isTopLevel());
+  if (cur == null) { response.sendRedirect(request.getContextPath()+"/login"); return; }
 
-  String scope = (String) request.getAttribute("scope");   // "mine" | "team"
+  boolean isTopLevel = cur.isTopLevel();
+  boolean isLeaf = cur.isLeaf();
+
+  String scope = (String) request.getAttribute("scope"); // "mine" | "team"
   if (scope == null) scope = "mine";
   String title = "team".equalsIgnoreCase(scope) ? "Team/Subtree" : "Mine";
-  if (isTopLevel) title = "Team/Subtree"; // top-level không có mine
+  if (isTopLevel) title = "Team/Subtree";
+
+  // CHỈ manager (không phải leaf) đang xem scope=team mới thấy cột Action
+  boolean showAction = "team".equalsIgnoreCase(scope) && !isLeaf;
 %>
 
 <h2>Requests (<%= title %>)</h2>
 
 <nav>
-  <%-- CHỈ hiện link Mine khi KHÔNG ở scope=mine và user không phải top-level --%>
+  <%-- Ẩn link Mine khi đang ở mine; top-level không có mine --%>
   <% if (!isTopLevel && !"mine".equalsIgnoreCase(scope)) { %>
     <a href="?scope=mine">Mine</a> |
   <% } %>
-  <!-- Team/Subtree đã bỏ hẳn theo yêu cầu -->
+  <%-- Bỏ hẳn Team/Subtree trên UI cho leaf như yêu cầu trước đây --%>
   <a href="<%=request.getContextPath()%>/app/home">Home</a>
 </nav>
 
@@ -44,21 +50,34 @@
     <th>Created By</th>
     <th>Status</th>
     <th>Days (biz)</th>
+    <% if (showAction) { %><th>Action</th><% } %>
   </tr>
 <%
   List<LeaveRequest> list = (List<LeaveRequest>) request.getAttribute("list");
   if (list != null) {
     for (LeaveRequest r : list) {
+      String st = (r.getStatusName()==null ? "" : r.getStatusName().trim().toLowerCase());
+      boolean isPending = st.equals("inprogress") || st.equals("pending")
+                       || st.equals("đang xử lý") || st.equals("dang xu ly");
+      boolean isOwn = r.getCreatedBy()!=null && r.getCreatedBy().equalsIgnoreCase(cur.getFullName());
 %>
   <tr>
     <td><%= r.getRequestCode() %></td>
     <td><%= r.getTypeCode() %></td>
-    <td><%= (r.getReasonCode() != null ? r.getReasonCode() : "") %></td>
+    <td><%= (r.getReasonCode()!=null ? r.getReasonCode() : "") %></td>
     <td><%= r.getFromDate() %></td>
     <td><%= r.getToDate() %></td>
     <td><%= r.getCreatedBy() %></td>
-    <td><%= (r.getStatusName() != null ? r.getStatusName() : "") %></td>
-    <td><%= (r.getDaysBusiness() != null ? r.getDaysBusiness() : "") %></td>
+    <td><%= (r.getStatusName()!=null ? r.getStatusName() : "") %></td>
+    <td><%= (r.getDaysBusiness()!=null ? r.getDaysBusiness() : "") %></td>
+
+    <% if (showAction) { %>
+      <td>
+        <% if (isPending && !isOwn) { %>
+          <a href="<%=request.getContextPath()%>/app/request/review?id=<%= r.getRequestId() %>">Review</a>
+        <% } else { %> - <% } %>
+      </td>
+    <% } %>
   </tr>
 <%  } } %>
 </table>
