@@ -4,14 +4,21 @@ import com.leavemgmt.dao.AgendaDAO;
 import com.leavemgmt.model.User;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
-import jakarta.servlet.http.*;
+import jakarta.servlet.http.HttpServlet;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.sql.Date;
 import java.time.LocalDate;
 import java.util.*;
 
-@WebServlet(name="AgendaServlet", urlPatterns={"/app/agenda"})
+/**
+ * Agenda dạng ma trận: hàng = nhân sự; cột = ngày.
+ * work (xanh), leave (đỏ, đã duyệt), pending (vàng).
+ * Chỉ người quản lý (không phải leaf) mới xem được.
+ */
+@WebServlet(name = "AgendaServlet", urlPatterns = {"/app/agenda"})
 public class AgendaServlet extends HttpServlet {
 
     @Override
@@ -19,31 +26,29 @@ public class AgendaServlet extends HttpServlet {
             throws ServletException, IOException {
 
         User u = (User) req.getSession().getAttribute("LOGIN_USER");
-        if (u == null) { resp.sendRedirect(req.getContextPath()+"/login"); return; }
-        // Nhân viên cấp thấp nhất không được xem agenda
+        if (u == null) { resp.sendRedirect(req.getContextPath() + "/login"); return; }
         if (u.isLeaf()) {
             req.getSession().setAttribute("FLASH_MSG", "Bạn không có quyền xem Agenda.");
-            resp.sendRedirect(req.getContextPath()+"/app/home");
+            resp.sendRedirect(req.getContextPath() + "/app/home");
             return;
         }
 
-        // Lấy khoảng ngày
+        // Khoảng ngày
         LocalDate today = LocalDate.now();
-        LocalDate start = parse(req.getParameter("start"), today);
-        LocalDate end   = parse(req.getParameter("end"), start.plusDays(9)); // mặc định 10 ngày
-
+        LocalDate start = parseLD(req.getParameter("start"), today);
+        LocalDate end   = parseLD(req.getParameter("end")  , start.plusDays(9)); // mặc định 10 ngày
         if (end.isBefore(start)) end = start;
 
-        // Tạo danh sách ngày
+        // Danh sách ngày
         List<LocalDate> days = new ArrayList<>();
         for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) days.add(d);
 
         AgendaDAO dao = new AgendaDAO();
 
-        // Danh sách nhân sự trong subtree của quản lý
+        // Thành viên thuộc subtree của manager
         Map<Integer, String> members = dao.loadTeamMembers(u.getUserId());
 
-        // Khởi tạo grid trạng thái mặc định (work)
+        // Khởi tạo grid mặc định (work)
         Map<Integer, Map<LocalDate, String>> grid = new LinkedHashMap<>();
         for (Integer uid : members.keySet()) {
             Map<LocalDate, String> row = new HashMap<>();
@@ -51,36 +56,44 @@ public class AgendaServlet extends HttpServlet {
             grid.put(uid, row);
         }
 
-        // Lấy các đơn nghỉ trùng khoảng
-        dao.loadLeavesForTeam(u.getUserId(), Date.valueOf(start), Date.valueOf(end))
-           .forEach(lv -> {
-               Map<LocalDate, String> row = grid.get(lv.userId);
-               if (row == null) return;
-               LocalDate s = lv.from.isBefore(start) ? start : lv.from.toLocalDate();
-               LocalDate e = lv.to.isAfter(end) ? end : lv.to.toLocalDate();
+        // Lấy các khoảng nghỉ chồng lấn với [start..end]
+        List<AgendaDAO.LeaveSpan> leaves =
+                dao.loadLeavesForTeam(u.getUserId(), Date.valueOf(start), Date.valueOf(end));
 
-               for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
-                   if ("approved".equals(lv.normStatus)) {
-                       row.put(d, "leave");      // đỏ
-                   } else if ("pending".equals(lv.normStatus)) {
-                       // chỉ tô vàng nếu ô chưa bị đánh đỏ
-                       if (!"leave".equals(row.get(d))) row.put(d, "pending");
-                   }
-               }
-           });
+        for (AgendaDAO.LeaveSpan lv : leaves) {
+            Map<LocalDate, String> row = grid.get(lv.userId);
+            if (row == null) continue;
 
-        // Đẩy dữ liệu cho JSP
+            // lv.from/lv.to là java.sql.Date -> đổi sang LocalDate
+            LocalDate fromLd = lv.from.toLocalDate();
+            LocalDate toLd   = lv.to.toLocalDate();
+
+            LocalDate s = fromLd.isBefore(start) ? start : fromLd;
+            LocalDate e = toLd.isAfter(end) ? end : toLd;
+
+            for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
+                if ("approved".equals(lv.normStatus)) {
+                    row.put(d, "leave");                 // đỏ
+                } else if ("pending".equals(lv.normStatus)) {
+                    if (!"leave".equals(row.get(d))) {   // chưa bị đỏ
+                        row.put(d, "pending");           // vàng
+                    }
+                }
+            }
+        }
+
+        // Đẩy dữ liệu ra JSP
         req.setAttribute("start", start);
         req.setAttribute("end", end);
-        req.setAttribute("days", days);                // List<LocalDate>
-        req.setAttribute("members", members);          // Map<userId, fullName>
-        req.setAttribute("grid", grid);                // Map<userId, Map<LocalDate, "work|leave|pending">>
+        req.setAttribute("days", days);            // List<LocalDate>
+        req.setAttribute("members", members);      // Map<userId, fullName>
+        req.setAttribute("grid", grid);            // Map<userId, Map<LocalDate, status>>
 
         req.getRequestDispatcher("/agenda.jsp").forward(req, resp);
     }
 
-    private LocalDate parse(String s, LocalDate def) {
-        try { return (s==null||s.isBlank()) ? def : LocalDate.parse(s); }
-        catch (Exception e) { return def; }
+    private LocalDate parseLD(String s, LocalDate defVal) {
+        try { return (s == null || s.isBlank()) ? defVal : LocalDate.parse(s); }
+        catch (Exception ignore) { return defVal; }
     }
 }
