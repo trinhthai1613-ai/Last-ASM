@@ -1,123 +1,139 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
-<%@ page import="java.util.*, com.leavemgmt.model.User, com.leavemgmt.model.LeaveType" %>
+<%@ page import="java.util.*, com.leavemgmt.model.LeaveType" %>
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<title>Create Leave Request</title>
-<style>
-  body { font-family: Arial, sans-serif }
-  .row { margin: 8px 0 }
-  select, input[type=date], textarea { font-size:14px }
-  textarea { width:560px; height:100px }
-  .btn { display:inline-block; padding:6px 12px; border:1px solid #444; text-decoration:none; margin-right:8px }
-  .btn:hover { background:#eee }
-  .alert { color:#b00020; margin:8px 0; }
+  <meta charset="UTF-8">
+  <title>Create Leave Request</title>
+  <style>
+    body{font-family:Arial, sans-serif}
+    label{display:inline-block;min-width:90px;margin:8px 0}
+    input, select, textarea{padding:6px}
+    textarea{width:420px;height:90px}
+    .hidden{display:none}
 
-  /* Popup phủ trắng toàn trang khi tạo xong */
-  .modal { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:9999; }
-  .modal-box { background:#fff; border:1px solid #ddd; border-radius:10px; min-width:420px; padding:16px 20px; box-shadow:0 8px 30px rgba(0,0,0,.25) }
-  .modal-title { margin:0 0 8px; font-size:18px }
-  .modal-actions { margin-top:14px }
-  .badge { color:#0a7a2a; font-weight:bold }
-  .hidden { display:none }
-  .no-scroll { overflow:hidden; }
-</style>
+    /* Modal */
+    .backdrop{
+      position:fixed; inset:0; background:#0008; z-index:9998;
+    }
+    .modal{
+      position:fixed; z-index:9999; inset:0; display:flex;
+      align-items:center; justify-content:center;
+    }
+    .modal > div{
+      background:#fff; padding:16px 18px; border-radius:8px; min-width:360px;
+      box-shadow:0 8px 28px rgba(0,0,0,.25);
+    }
+    .modal h3{margin:0 0 8px 0}
+    .actions{margin-top:12px; display:flex; gap:8px}
+    .btn{padding:6px 12px; border:1px solid #444; background:#fafafa; cursor:pointer}
+  </style>
 </head>
 <body>
-<%
-  User u = (User) session.getAttribute("LOGIN_USER");
-  if (u == null) { response.sendRedirect(request.getContextPath()+"/login"); return; }
-
-  @SuppressWarnings("unchecked")
-  List<LeaveType> types = (List<LeaveType>) request.getAttribute("types"); // nạp từ servlet
-
-  String createdId = request.getParameter("createdId");
-  boolean justCreated = (createdId != null && !createdId.isEmpty());
-
-  String flash = (String) session.getAttribute("FLASH_MSG");
-  if (flash != null) session.removeAttribute("FLASH_MSG");
-%>
-
-<% if (justCreated) { %>
-<script>document.addEventListener('DOMContentLoaded',()=>document.body.classList.add('no-scroll'));</script>
-<% } %>
 
 <h2>Create Leave Request</h2>
 
-<%-- Thông báo lỗi khi tạo thất bại --%>
-<% if (flash != null) { %>
-  <div class="alert"><%= flash %></div>
-<% } %>
+<%
+  // 'types' do servlet setAttribute đưa xuống: List<LeaveType>
+  @SuppressWarnings("unchecked")
+  List<LeaveType> types = (List<LeaveType>) request.getAttribute("types");
+  if (types == null) types = new ArrayList<>();
 
-<form method="post" action="<%=request.getContextPath()%>/app/request/create">
-  <div class="row">
-    <label>Leave Type:&nbsp;</label>
-    <select name="typeId" id="typeId" required>
+  String createdId = request.getParameter("createdId"); // để bật modal
+%>
+
+<form id="frmCreate" method="post" action="<%=request.getContextPath()%>/app/request/create">
+  <div>
+    <label>Leave Type:</label>
+    <select id="typeId" name="typeId" required>
       <option value="">-- Select type --</option>
-      <% if (types != null) {
-           for (LeaveType t : types) { %>
-        <option value="<%= t.getLeaveTypeId() %>" data-code="<%= t.getTypeCode() %>">
-          <%= t.getTypeCode() %> - <%= t.getTypeName() %>
+      <%
+        for (LeaveType t : types) {
+          // Nếu model có TypeCode thì in ra luôn data-code để JS nhận biết “OTHER”
+          String code = "";
+          try { 
+            java.lang.reflect.Method m = t.getClass().getMethod("getTypeCode");
+            Object v = m.invoke(t);
+            code = (v==null) ? "" : v.toString();
+          } catch (Exception ignore) {}
+      %>
+        <option value="<%=t.getLeaveTypeId()%>" data-code="<%=code%>">
+          <%= t.getTypeName() %>
         </option>
-      <% } } %>
+      <% } %>
     </select>
   </div>
 
-  <div class="row" id="reasonRow" style="display:none">
-    <label>Reason:</label><br/>
-    <textarea name="reason" id="reason"></textarea>
+  <div id="reasonGroup" class="hidden">
+    <label>Reason:</label>
+    <textarea id="reason" name="reason" placeholder="Nhập lý do cụ thể..."></textarea>
   </div>
 
-  <div class="row">
-    <label>From:&nbsp;</label>
-    <input type="date" name="fromDate" id="fromDate" required>
-    &nbsp;&nbsp;
-    <label>To:&nbsp;</label>
-    <input type="date" name="toDate" id="toDate" required>
+  <div>
+    <label>From:</label>
+    <input type="date" id="from" name="from" required>
+    <label style="min-width:auto;margin-left:10px">To:</label>
+    <input type="date" id="to" name="to" required>
   </div>
 
-  <div class="row">
-    <button class="btn" type="submit">Send</button>
-    <a class="btn" href="<%=request.getContextPath()%>/app/home">Back</a>
+  <div style="margin-top:10px">
+    <button class="btn" type="submit" id="btnSend">Send</button>
+    <a class="btn" href="<%=request.getContextPath()%>/home">Back</a>
   </div>
 </form>
 
-<!-- POPUP THÀNH CÔNG: chỉ hiển thị sau khi redirect kèm ?createdId=... -->
-<div id="successModal" class="modal <%= justCreated ? "" : "hidden" %>" aria-modal="true" role="dialog">
-  <div class="modal-box">
-    <h3 class="modal-title">Tạo đơn thành công</h3>
-    <p>Request ID: <span class="badge">#<%= createdId %></span></p>
-    <div class="modal-actions">
-      <a class="btn" href="<%=request.getContextPath()%>/app/request/create">Create another</a>
-      <a class="btn" href="<%=request.getContextPath()%>/app/request/list?scope=mine">My Requests</a>
-      <a class="btn" href="<%=request.getContextPath()%>/app/home">Home</a>
+<% if (createdId != null && !createdId.isBlank()) { %>
+  <!-- Modal success -->
+  <div class="backdrop"></div>
+  <div class="modal">
+    <div>
+      <h3>Tạo đơn thành công!</h3>
+      <p>Request ID: <strong><%= createdId %></strong></p>
+      <div class="actions">
+        <button class="btn" onclick="location.href='<%=request.getContextPath()%>/app/request/create'">Tạo tiếp</button>
+        <button class="btn" onclick="location.href='<%=request.getContextPath()%>/app/request/list?scope=mine'">Về “My Requests”</button>
+      </div>
     </div>
   </div>
-</div>
+<% } %>
 
 <script>
-  // Không cho chọn ngày đã qua
-  const today = new Date(); today.setHours(0,0,0,0);
-  const fmt = d => d.toISOString().slice(0,10);
-  const fromEl = document.getElementById('fromDate');
-  const toEl   = document.getElementById('toDate');
-  fromEl.min = fmt(today); toEl.min = fmt(today);
-  fromEl.addEventListener('change', () => {
-    if (toEl.value < fromEl.value) toEl.value = fromEl.value;
-    toEl.min = fromEl.value;
-  });
+  const selType   = document.getElementById('typeId');
+  const grpReason = document.getElementById('reasonGroup');
+  const txtReason = document.getElementById('reason');
+  const inpFrom   = document.getElementById('from');
+  const inpTo     = document.getElementById('to');
 
-  // Hiện ô Reason khi chọn OTHER
-  const typeEl = document.getElementById('typeId');
-  const reasonRow = document.getElementById('reasonRow');
-  function refreshReasonUI() {
-    const opt = typeEl.selectedOptions[0];
-    const code = opt ? (opt.getAttribute('data-code')||'') : '';
-    reasonRow.style.display = (code === 'OTHER') ? '' : 'none';
+  // Không cho chọn ngày quá khứ
+  (function lockPast(){
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const min = `${y}-${m}-${d}`;
+    inpFrom.min = min;
+    inpTo.min   = min;
+  })();
+
+  // Khi chọn “Khác” -> hiện Reason (dựa theo text hoặc data-code="OTHER")
+  function toggleReason(){
+    const opt = selType.options[selType.selectedIndex];
+    const code = (opt.getAttribute('data-code') || '').toUpperCase();
+    const text = opt.textContent.trim().toLowerCase();
+
+    const isOther = code === 'OTHER' || text.includes('khác');
+    if (isOther){
+      grpReason.classList.remove('hidden');
+      txtReason.setAttribute('required','required');
+    }else{
+      grpReason.classList.add('hidden');
+      txtReason.removeAttribute('required');
+      txtReason.value = '';
+    }
   }
-  typeEl.addEventListener('change', refreshReasonUI);
-  refreshReasonUI();
+  selType.addEventListener('change', toggleReason);
+  // Gọi 1 lần để áp trạng thái ban đầu
+  toggleReason();
 </script>
 </body>
 </html>
