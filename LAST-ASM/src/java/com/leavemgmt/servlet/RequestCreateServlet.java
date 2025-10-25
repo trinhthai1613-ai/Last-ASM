@@ -4,7 +4,6 @@ import com.leavemgmt.dao.RequestDAO;
 import com.leavemgmt.model.LeaveRequest;
 import com.leavemgmt.model.LeaveType;
 import com.leavemgmt.model.User;
-import com.leavemgmt.util.DBConnection;
 
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
@@ -22,25 +21,25 @@ public class RequestCreateServlet extends HttpServlet {
 
     private final RequestDAO requestDAO = new RequestDAO();
 
-    // HIỂN THỊ FORM (GET)
+    // HIỂN THỊ FORM + POPUP nếu có createdId
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        // nạp danh sách loại nghỉ để render combobox
+        // nạp danh sách loại nghỉ
         List<LeaveType> types = requestDAO.listTypes();
         req.setAttribute("types", types);
 
-        // nếu vừa tạo xong -> hiện popup bằng createdId
+        // nếu vừa tạo xong sẽ có createdId -> JSP sẽ bật popup
         String createdId = req.getParameter("createdId");
-        if (createdId != null && !createdId.isBlank()) {
+        if (createdId != null && !createdId.trim().isEmpty()) {
             req.setAttribute("createdId", createdId.trim());
         }
 
         req.getRequestDispatcher("/request_create.jsp").forward(req, resp);
     }
 
-    // NHẬN SUBMIT (POST)
+    // NHẬN SUBMIT
     @Override
     protected void doPost(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
@@ -53,25 +52,26 @@ public class RequestCreateServlet extends HttpServlet {
 
         try {
             int typeId = Integer.parseInt(req.getParameter("typeId"));
-            String reason = req.getParameter("reason");      // có thể null nếu không chọn "OTHER"
+            String reason = req.getParameter("reason"); // có thể null khi KHÁC không được chọn
             LocalDate fromLd = LocalDate.parse(req.getParameter("from"));
             LocalDate toLd   = LocalDate.parse(req.getParameter("to"));
 
             LeaveRequest r = new LeaveRequest();
             r.setLeaveTypeId(typeId);
-            r.setReason((reason == null || reason.isBlank()) ? null : reason.trim());
+            r.setReason((reason != null && !reason.isBlank()) ? reason.trim() : null);
             r.setFromDate(Date.valueOf(fromLd));
             r.setToDate(Date.valueOf(toLd));
             r.setCreatedByUserId(u.getUserId());
 
             int newId = requestDAO.createRequest(r);
 
-            // redirect về GET để tránh F5 resubmit + hiện popup
+            // chuyển về GET kèm createdId để hiển thị popup thành công
             resp.sendRedirect(req.getContextPath() + "/app/request/create?createdId=" + newId);
 
         } catch (Exception ex) {
+            // lỗi validate đơn giản -> quay lại form
             req.setAttribute("error", "Create failed: " + ex.getMessage());
-            doGet(req, resp); // quay lại form kèm lỗi
+            doGet(req, resp);
         }
     }
 }

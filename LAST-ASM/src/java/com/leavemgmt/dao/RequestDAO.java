@@ -148,6 +148,58 @@ public class RequestDAO {
         }
         return 0;
     }
+    // Lấy danh sách loại nghỉ để render combobox
+public java.util.List<com.leavemgmt.model.LeaveType> listTypes() {
+    java.util.List<com.leavemgmt.model.LeaveType> list = new java.util.ArrayList<>();
+    String sql = "SELECT LeaveTypeID, TypeName FROM dbo.LeaveTypes ORDER BY LeaveTypeID";
+    try (java.sql.Connection cn = DBConnection.getConnection();
+         java.sql.PreparedStatement ps = cn.prepareStatement(sql);
+         java.sql.ResultSet rs = ps.executeQuery()) {
+        while (rs.next()) {
+            com.leavemgmt.model.LeaveType t = new com.leavemgmt.model.LeaveType();
+            t.setLeaveTypeId(rs.getInt("LeaveTypeID"));
+            t.setTypeName(rs.getString("TypeName"));
+            list.add(t);
+        }
+    } catch (Exception ex) {
+        throw new RuntimeException("listTypes failed", ex);
+    }
+    return list;
+}
+
+// Cập nhật trạng thái bằng STATUS CODE (APPROVED/REJECTED/INPROGRESS)
+public void updateStatusByCode(int requestId, String statusCode, int actorUserId, String note) {
+    String sql =
+            "UPDATE r SET r.CurrentStatusID = s.StatusID " +
+            "FROM dbo.LeaveRequests r " +
+            "JOIN dbo.RequestStatuses s ON s.StatusCode = ? " +
+            "WHERE r.RequestID = ?; " +
+            // nếu bạn có bảng log, thêm insert ở dưới (tùy DB của bạn):
+            // "INSERT INTO dbo.AuditLogs(ActionType, TargetRequestID, ActorUserID, Note) " +
+            // "VALUES('REVIEW', ?, ?, ?);"
+            "";
+
+    try (java.sql.Connection cn = DBConnection.getConnection();
+         java.sql.PreparedStatement ps = cn.prepareStatement(sql)) {
+
+        ps.setString(1, statusCode);
+        ps.setInt(2, requestId);
+        ps.executeUpdate();
+
+        // Nếu có bảng log riêng, bỏ comment và set tiếp:
+        // try (java.sql.PreparedStatement ps2 = cn.prepareStatement(
+        //     "INSERT INTO dbo.AuditLogs(ActionType, TargetRequestID, ActorUserID, Note) VALUES(?,?,?,?)")) {
+        //     ps2.setString(1, "REVIEW");
+        //     ps2.setInt(2, requestId);
+        //     ps2.setInt(3, actorUserId);
+        //     ps2.setString(4, (note == null || note.isBlank()) ? null : note.trim());
+        //     ps2.executeUpdate();
+        // }
+
+    } catch (Exception ex) {
+        throw new RuntimeException("updateStatusByCode failed", ex);
+    }
+}
 
     // ---------------------------------------------------------
     // Helper: map 1 dòng ResultSet -> LeaveRequest
