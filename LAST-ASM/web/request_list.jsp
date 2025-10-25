@@ -10,18 +10,21 @@
 <%
   User cur = (User) session.getAttribute("LOGIN_USER");
   boolean isTopLevel = (cur != null && cur.isTopLevel());
-  String scope = (String) request.getAttribute("scope");
+
+  String scope = (String) request.getAttribute("scope");   // "mine" | "team"
+  if (scope == null) scope = "mine";
   String title = "team".equalsIgnoreCase(scope) ? "Team/Subtree" : "Mine";
-  if (isTopLevel) title = "Team/Subtree";
+  if (isTopLevel) title = "Team/Subtree"; // top-level không có mine
 %>
 
 <h2>Requests (<%= title %>)</h2>
 
 <nav>
-  <% if (!isTopLevel) { %>
+  <%-- CHỈ hiện link Mine khi KHÔNG ở scope=mine và user không phải top-level --%>
+  <% if (!isTopLevel && !"mine".equalsIgnoreCase(scope)) { %>
     <a href="?scope=mine">Mine</a> |
   <% } %>
-  <!-- BỎ HẲN Team/Subtree -->
+  <!-- Team/Subtree đã bỏ hẳn theo yêu cầu -->
   <a href="<%=request.getContextPath()%>/app/home">Home</a>
 </nav>
 
