@@ -69,6 +69,14 @@ public class LeaveRequest {
     public Timestamp getCreatedAt() { return createdAt; }
     public void setCreatedAt(Timestamp createdAt) { this.createdAt = createdAt; }
 
+        // ---- ALIAS cho tương thích JSP cũ ----
+public String getLeaveTypeName() {    // alias cho typeName
+    return getTypeName();
+}
+public String getStatusName() {       // alias cho statusCode
+    return getStatusCode();
+}
+
     /**
      * Số ngày làm việc. Nếu DB không trả ra thì sẽ tự tính từ fromDate..toDate,
      * bỏ qua T7 (SAT) và CN (SUN).

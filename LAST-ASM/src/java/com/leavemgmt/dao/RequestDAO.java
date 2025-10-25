@@ -48,74 +48,102 @@ public class RequestDAO {
     //    NOTE: nếu cột quan hệ quản lý KHÔNG phải 'ManagerUserID', hãy thay
     //    ở hai chỗ comment bên dưới.
     // ---------------------------------------------------------
-    public List<LeaveRequest> listSubtree(int managerUserId, Date from, Date to) {
-        List<LeaveRequest> result = new ArrayList<>();
+   // ---- DÁN ĐÈ VÀO RequestDAO.java ----
+    // RequestDAO.java
+public List<LeaveRequest> listSubtree(int managerUserId, java.sql.Date from, java.sql.Date to) {
+    final String sql =
+        "WITH Subtree AS (                                                             \n" +
+        "    SELECT u.UserID                                                           \n" +
+        "    FROM dbo.Users u                                                          \n" +
+        "    WHERE u.UserID = ?                                                        \n" +
+        "    UNION ALL                                                                 \n" +
+        "    SELECT u2.UserID                                                          \n" +
+        "    FROM dbo.Users u2                                                         \n" +
+        "    JOIN Subtree st ON u2.CurrentManagerID = st.UserID                        \n" +
+        ")                                                                              \n" +
+        "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, r.Reason,                   \n" +
+        "       r.FromDate, r.ToDate, r.CreatedByUserID, s.StatusCode,                 \n" +
+        "       u.FullName AS CreatedByName, lt.TypeName, r.CreatedAt                  \n" +
+        "FROM dbo.LeaveRequests r                                                      \n" +
+        "JOIN dbo.Users u            ON u.UserID      = r.CreatedByUserID              \n" +
+        "JOIN dbo.RequestStatuses s  ON s.StatusID    = r.CurrentStatusID              \n" +
+        "JOIN dbo.LeaveTypes lt      ON lt.LeaveTypeID= r.LeaveTypeID                  \n" +
+        "WHERE r.FromDate <= ? AND r.ToDate >= ?                                       \n" +
+        "  AND r.CreatedByUserID IN (SELECT UserID FROM Subtree)                       \n" +
+        "ORDER BY r.RequestID DESC                                                     \n" +
+        "OPTION (MAXRECURSION 100);                                                    \n";
 
-        String sql =
-            "WITH UserTree AS (                                           \n" +
-            "    SELECT u.UserID                                          \n" +
-            "    FROM   dbo.Users u                                        \n" +
-            "    WHERE  u.UserID = ?                                       \n" +
-            "    UNION ALL                                                 \n" +
-            "    SELECT c.UserID                                           \n" +
-            "    FROM   dbo.Users c                                        \n" +
-            "    JOIN   UserTree p ON c.ManagerUserID = p.UserID           \n" + // <--- ĐỔI 'ManagerUserID' nếu DB khác
-            ")                                                             \n" +
-            "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, lt.TypeName, r.Reason, \n" +
-            "       r.FromDate, r.ToDate, r.CreatedByUserID, u.FullName AS CreatedByName, \n" +
-            "       r.CurrentStatusID, rs.StatusCode, r.CreatedAt          \n" +
-            "FROM   dbo.LeaveRequests r                                    \n" +
-            "JOIN   dbo.Users u           ON u.UserID   = r.CreatedByUserID \n" +
-            "JOIN   dbo.RequestStatuses rs ON rs.StatusID = r.CurrentStatusID \n" +
-            "JOIN   dbo.LeaveTypes lt     ON lt.LeaveTypeID = r.LeaveTypeID \n" +
-            "JOIN   UserTree t           ON t.UserID  = r.CreatedByUserID    \n" +
-            "WHERE  r.FromDate <= ? AND r.ToDate >= ?                        \n" +
-            "ORDER BY r.RequestID DESC                                      \n" +
-            "OPTION (MAXRECURSION 100)";
+    List<LeaveRequest> result = new ArrayList<>();
+    try (Connection cn = DBConnection.getConnection();
+         PreparedStatement ps = cn.prepareStatement(sql)) {
 
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
+        ps.setInt(1, managerUserId);  // gốc của cây quản lý
+        ps.setDate(2, to);            // điều kiện ngày: FromDate <= to
+        ps.setDate(3, from);          //                   ToDate   >= from
 
-            ps.setInt(1, managerUserId);
-            ps.setDate(2, from);
-            ps.setDate(3, to);
-
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) {
-                    result.add(mapRow(rs));
-                }
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                LeaveRequest r = new LeaveRequest();
+                r.setRequestId(rs.getInt("RequestID"));
+                r.setRequestCode(rs.getString("RequestCode"));
+                r.setLeaveTypeId(rs.getInt("LeaveTypeID"));
+                r.setReason(rs.getString("Reason"));
+                r.setFromDate(rs.getDate("FromDate"));
+                r.setToDate(rs.getDate("ToDate"));
+                r.setCreatedByUserId(rs.getInt("CreatedByUserID"));
+                r.setStatusCode(rs.getString("StatusCode"));     // so sánh bằng CODE
+                r.setCreatedByName(rs.getString("CreatedByName"));
+                r.setTypeName(rs.getString("TypeName"));
+                r.setCreatedAt(rs.getTimestamp("CreatedAt"));
+                result.add(r);
             }
-        } catch (Exception e) {
-            throw new RuntimeException("listSubtree failed", e);
         }
-        return result;
+    } catch (SQLException e) {
+        throw new RuntimeException("listSubtree failed (using Users.CurrentManagerID)", e);
     }
+    return result;
+}
+
 
     // ---------------------------------------------------------
     // 3) Lấy 1 đơn theo id (dùng cho Review)
     // ---------------------------------------------------------
-    public LeaveRequest findById(int id) {
-        String sql =
-            "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, lt.TypeName, r.Reason, " +
-            "       r.FromDate, r.ToDate, r.CreatedByUserID, u.FullName AS CreatedByName, " +
-            "       r.CurrentStatusID, rs.StatusCode, r.CreatedAt " +
-            "FROM   dbo.LeaveRequests r " +
-            "JOIN   dbo.Users u           ON u.UserID   = r.CreatedByUserID " +
-            "JOIN   dbo.RequestStatuses rs ON rs.StatusID = r.CurrentStatusID " +
-            "JOIN   dbo.LeaveTypes lt     ON lt.LeaveTypeID = r.LeaveTypeID " +
-            "WHERE  r.RequestID = ?";
+public LeaveRequest findById(int id) {
+    final String sql =
+        "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, r.Reason, " +
+        "       r.FromDate, r.ToDate, r.CreatedByUserID, " +
+        "       s.StatusCode, u.FullName AS CreatedByName, lt.TypeName, r.CreatedAt " +
+        "FROM dbo.LeaveRequests r " +
+        "JOIN dbo.RequestStatuses s ON s.StatusID = r.CurrentStatusID " +
+        "JOIN dbo.Users u          ON u.UserID  = r.CreatedByUserID " +
+        "JOIN dbo.LeaveTypes lt    ON lt.LeaveTypeID = r.LeaveTypeID " +
+        "WHERE r.RequestID = ?";
 
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
-            ps.setInt(1, id);
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return mapRow(rs);
+    try (Connection cn = DBConnection.getConnection();
+         PreparedStatement ps = cn.prepareStatement(sql)) {
+        ps.setInt(1, id);
+        try (ResultSet rs = ps.executeQuery()) {
+            if (rs.next()) {
+                LeaveRequest r = new LeaveRequest();
+                r.setRequestId(rs.getInt("RequestID"));
+                r.setRequestCode(rs.getString("RequestCode"));
+                r.setLeaveTypeId(rs.getInt("LeaveTypeID"));
+                r.setReason(rs.getString("Reason"));              // <-- Reason
+                r.setFromDate(rs.getDate("FromDate"));
+                r.setToDate(rs.getDate("ToDate"));
+                r.setCreatedByUserId(rs.getInt("CreatedByUserID"));
+                r.setStatusCode(rs.getString("StatusCode"));       // <-- Code
+                r.setCreatedByName(rs.getString("CreatedByName"));
+                r.setTypeName(rs.getString("TypeName"));
+                r.setCreatedAt(rs.getTimestamp("CreatedAt"));
+                return r;
             }
-        } catch (Exception e) {
-            throw new RuntimeException("findById failed", e);
         }
-        return null;
+    } catch (SQLException e) {
+        throw new RuntimeException("findById failed", e);
     }
+    return null;
+}
 
     // ---------------------------------------------------------
     // 4) Tạo đơn
