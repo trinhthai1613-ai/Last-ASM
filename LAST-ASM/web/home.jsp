@@ -7,7 +7,7 @@
 <%
   User u = (User) session.getAttribute("LOGIN_USER");
   boolean isTopLevel = (u != null && u.isTopLevel());
-  boolean isLeaf = (u != null && u.isLeaf()); // nhân viên cấp thấp nhất
+  boolean isLeaf = (u != null && u.isLeaf());
 %>
 
 <h2>Welcome, <%= u.getFullName() %> (<%= u.getUsername() %>) — Division: <%= u.getDivisionName() %></h2>
@@ -18,8 +18,10 @@
     <a href="<%=request.getContextPath()%>/app/request/list?scope=mine">My Requests</a> |
   <% } %>
   <a href="<%=request.getContextPath()%>/app/request/list?scope=team">Team/Subtree</a> |
-  <% if (!isLeaf) { %>
+  <% if (isTopLevel) { %>
     <a href="<%=request.getContextPath()%>/app/audit/logs">Audit Log</a> |
+  <% } %>
+  <% if (!isLeaf) { %>
     <a href="<%=request.getContextPath()%>/app/agenda">Agenda</a> |
   <% } %>
   <a href="<%=request.getContextPath()%>/logout">Logout</a>
