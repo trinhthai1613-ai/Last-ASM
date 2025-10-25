@@ -1,6 +1,7 @@
 package com.leavemgmt.dao;
 
 import com.leavemgmt.model.LeaveRequest;
+import com.leavemgmt.model.LeaveType;
 import com.leavemgmt.util.DBConnection;
 
 import java.sql.*;
@@ -213,5 +214,28 @@ public List<LeaveRequest> listSubtree(int managerUserId, java.sql.Date from, jav
         lr.setCreatedByUserId(rs.getInt("CreatedByUserID"));
         lr.setCreatedByName(rs.getNString("CreatedByName"));
         return lr;
+    }
+    public List<LeaveType> listTypes() {
+        String sql = "SELECT LeaveTypeID, TypeName /*, TypeCode*/ " +
+                     "FROM dbo.LeaveTypes " +
+                     "ORDER BY LeaveTypeID";
+        List<LeaveType> list = new ArrayList<>();
+
+        try (Connection cn = DBConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(sql);
+             ResultSet rs = ps.executeQuery()) {
+
+            while (rs.next()) {
+                LeaveType t = new LeaveType();
+                t.setLeaveTypeId(rs.getInt("LeaveTypeID"));
+                t.setTypeName(rs.getNString("TypeName"));   // dùng getNString cho NVARCHAR
+                // Nếu bảng có cột TypeCode thì mở dòng dưới:
+                // t.setTypeCode(rs.getString("TypeCode"));
+                list.add(t);
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("listTypes failed", e);
+        }
+        return list;
     }
 }
