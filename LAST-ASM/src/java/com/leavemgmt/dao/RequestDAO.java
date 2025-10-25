@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class RequestDAO {
-
+    private static final String MANAGER_COL = "CurrentManagerID";
     // --- CREATE ---
     public int createRequest(LeaveRequest req) {
         String sql =
@@ -76,13 +76,28 @@ public class RequestDAO {
     // --- FIND ONE ---
     public LeaveRequest findById(int requestId) {
         String sql =
-            "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, lt.TypeName, r.Reason, " +
-            "       r.FromDate, r.ToDate, s.StatusCode, r.CreatedByUserID, u.FullName AS CreatedByName " +
-            "FROM dbo.LeaveRequests r " +
-            "JOIN dbo.LeaveTypes lt     ON lt.LeaveTypeID = r.LeaveTypeID " +
-            "JOIN dbo.RequestStatuses s  ON s.StatusID     = r.CurrentStatusID " +
-            "JOIN dbo.Users u            ON u.UserID       = r.CreatedByUserID " +
-            "WHERE r.RequestID = ?";
+    "WITH Tree AS (                                                    \n" +
+    "    SELECT u.UserID                                              \n" +
+    "    FROM dbo.Users u                                             \n" +
+    "    WHERE u.UserID = ?                                           \n" +
+    "    UNION ALL                                                    \n" +
+    "    SELECT c.UserID                                              \n" +
+    "    FROM dbo.Users c                                             \n" +
+    "    JOIN Tree t ON c." + MANAGER_COL + " = t.UserID              \n" +
+    ")                                                                 \n" +
+    "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID,                 \n" +
+    "       r.Reason, r.FromDate, r.ToDate,                            \n" +
+    "       r.CreatedByUserID, r.CurrentStatusID,                      \n" +
+    "       rs.StatusCode, u.FullName AS CreatedByName, lt.TypeName,   \n" +
+    "       r.CreatedAt                                                \n" +
+    "FROM dbo.LeaveRequests r                                          \n" +
+    "JOIN dbo.Users u        ON u.UserID = r.CreatedByUserID           \n" +
+    "JOIN Tree t            ON t.UserID = u.UserID                     \n" +
+    "JOIN dbo.RequestStatuses rs ON rs.StatusID    = r.CurrentStatusID \n" +
+    "JOIN dbo.LeaveTypes lt   ON lt.LeaveTypeID = r.LeaveTypeID        \n" +
+    "WHERE r.FromDate <= ? AND r.ToDate >= ?                           \n" +
+    "ORDER BY r.RequestID DESC                                         \n" +
+    "OPTION (MAXRECURSION 100);";
 
         try (Connection cn = DBConnection.getConnection();
              PreparedStatement ps = cn.prepareStatement(sql)) {
@@ -122,35 +137,67 @@ public class RequestDAO {
     }
 
     // --- LIST SUBTREE (tuỳ logic cây phòng ban của bạn) ---
-    public List<LeaveRequest> listSubtree(int managerUserId, Date from, Date to) {
-        // Ở đây giả sử bạn đã có sẵn view/TVF trả về danh sách userId trong cây.
-        // Nếu bạn đã có câu SQL cũ thì chỉ cần thêm JOIN RequestStatuses và SELECT s.StatusCode.
-        String sql =
-            "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID, lt.TypeName, r.Reason, " +
-            "       r.FromDate, r.ToDate, s.StatusCode, r.CreatedByUserID, u.FullName AS CreatedByName " +
-            "FROM dbo.LeaveRequests r " +
-            "JOIN dbo.LeaveTypes lt     ON lt.LeaveTypeID = r.LeaveTypeID " +
-            "JOIN dbo.RequestStatuses s  ON s.StatusID     = r.CurrentStatusID " +
-            "JOIN dbo.Users u            ON u.UserID       = r.CreatedByUserID " +
-            "JOIN dbo.Users tree         ON tree.UserID    = r.CreatedByUserID " +
-            "WHERE tree.ManagerChain LIKE '%,' + CAST(? AS VARCHAR(10)) + ',%' " + 
-            "  AND r.FromDate >= ? AND r.ToDate <= ? " +
-            "ORDER BY r.RequestID DESC";
+    // RequestDAO.java
+public List<LeaveRequest> listSubtree(int managerUserId, java.sql.Date from, java.sql.Date to) {
+    List<LeaveRequest> result = new ArrayList<>();
 
-        List<LeaveRequest> list = new ArrayList<>();
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
-            ps.setInt(1, managerUserId);
-            ps.setDate(2, from);
-            ps.setDate(3, to);
-            try (ResultSet rs = ps.executeQuery()) {
-                while (rs.next()) list.add(mapRow(rs));
+    String sql =
+        "WITH Tree AS (                                                  \n" +
+        "   SELECT u.UserID                                              \n" +
+        "   FROM dbo.Users u                                             \n" +
+        "   WHERE u.UserID = ?                                           \n" +
+        "   UNION ALL                                                    \n" +
+        "   SELECT c.UserID                                              \n" +
+        "   FROM dbo.Users c                                             \n" +
+        "   JOIN Tree t ON c.CurrentManagerID = t.UserID                    \n" +
+        ")                                                               \n" +
+        "SELECT r.RequestID, r.RequestCode, r.LeaveTypeID,               \n" +
+        "       r.Reason, r.FromDate, r.ToDate,                          \n" +
+        "       r.CreatedByUserID, r.CurrentStatusID,                    \n" +
+        "       rs.StatusCode,                                           \n" +
+        "       u.FullName AS CreatedByName,                             \n" +
+        "       lt.TypeName,                                             \n" +
+        "       r.CreatedAt                                              \n" +
+        "FROM dbo.LeaveRequests r                                        \n" +
+        "JOIN dbo.Users u ON u.UserID = r.CreatedByUserID                \n" +
+        "JOIN Tree t   ON t.UserID = u.UserID                            \n" +
+        "JOIN dbo.RequestStatuses rs ON rs.StatusID = r.CurrentStatusID  \n" +
+        "JOIN dbo.LeaveTypes lt ON lt.LeaveTypeID = r.LeaveTypeID        \n" +
+        "WHERE r.FromDate <= ? AND r.ToDate >= ?                         \n" +
+        "ORDER BY r.RequestID DESC                                       \n" +
+        "OPTION (MAXRECURSION 100);";
+
+    try (Connection cn = DBConnection.getConnection();
+         PreparedStatement ps = cn.prepareStatement(sql)) {
+
+        ps.setInt(1, managerUserId);
+        ps.setDate(2, from);
+        ps.setDate(3, to);
+
+        try (ResultSet rs = ps.executeQuery()) {
+            while (rs.next()) {
+                LeaveRequest r = new LeaveRequest();
+                r.setRequestId(rs.getInt("RequestID"));
+                r.setRequestCode(rs.getString("RequestCode"));
+                r.setLeaveTypeId(rs.getInt("LeaveTypeID"));
+                r.setReason(rs.getString("Reason"));
+                r.setFromDate(rs.getDate("FromDate"));
+                r.setToDate(rs.getDate("ToDate"));
+                r.setCreatedByUserId(rs.getInt("CreatedByUserID"));
+                r.setCurrentStatusId(rs.getInt("CurrentStatusID"));
+                r.setStatusCode(rs.getString("StatusCode"));
+                r.setCreatedByName(rs.getString("CreatedByName"));
+                r.setLeaveTypeName(rs.getString("TypeName"));
+                r.setCreatedAt(rs.getTimestamp("CreatedAt"));
+                result.add(r);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException("listSubtree failed", e);
         }
-        return list;
+    } catch (Exception e) {
+        throw new RuntimeException("listSubtree failed", e);
     }
+    return result;
+}
+
 
     // --- map row ---
     private LeaveRequest mapRow(ResultSet rs) throws SQLException {
