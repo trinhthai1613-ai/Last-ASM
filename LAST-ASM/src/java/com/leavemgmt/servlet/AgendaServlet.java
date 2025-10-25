@@ -14,8 +14,8 @@ import java.time.LocalDate;
 import java.util.*;
 
 /**
- * Agenda dạng ma trận: hàng = nhân sự; cột = ngày.
- * work (xanh), leave (đỏ, đã duyệt), pending (vàng).
+ * Agenda ma trận: hàng = nhân sự; cột = từng ngày trong khoảng.
+ * work (xanh), leave (đỏ/đã duyệt), pending (vàng/đang chờ).
  * Chỉ người quản lý (không phải leaf) mới xem được.
  */
 @WebServlet(name = "AgendaServlet", urlPatterns = {"/app/agenda"})
@@ -26,10 +26,10 @@ public class AgendaServlet extends HttpServlet {
             throws ServletException, IOException {
 
         User u = (User) req.getSession().getAttribute("LOGIN_USER");
-        if (u == null) { resp.sendRedirect(req.getContextPath() + "/login"); return; }
+        if (u == null) { resp.sendRedirect(req.getContextPath()+"/login"); return; }
         if (u.isLeaf()) {
             req.getSession().setAttribute("FLASH_MSG", "Bạn không có quyền xem Agenda.");
-            resp.sendRedirect(req.getContextPath() + "/app/home");
+            resp.sendRedirect(req.getContextPath()+"/app/home");
             return;
         }
 

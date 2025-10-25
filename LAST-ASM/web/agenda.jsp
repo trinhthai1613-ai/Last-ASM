@@ -11,24 +11,24 @@
   table { border-collapse: collapse }
   th, td { border:1px solid #333; padding:6px 10px; text-align:center; }
   th.name, td.name { text-align:left; min-width:140px }
-  .work    { background:#b6e7a1; }   /* xanh nhạt */
-  .leave   { background:#ff6b6b; }   /* đỏ */
-  .pending { background:#ffd54f; }   /* vàng */
+  .work    { background:#b6e7a1; }  /* xanh nhạt */
+  .leave   { background:#ff6b6b; }  /* đỏ */
+  .pending { background:#ffd54f; }  /* vàng */
   .weekend { color:#888; }
 </style>
 </head>
 <body>
 
 <%
-  java.time.LocalDate start = (java.time.LocalDate) request.getAttribute("start");
-  java.time.LocalDate end   = (java.time.LocalDate) request.getAttribute("end");
+  LocalDate start = (LocalDate) request.getAttribute("start");
+  LocalDate end   = (LocalDate) request.getAttribute("end");
   @SuppressWarnings("unchecked")
-  java.util.List<java.time.LocalDate> days = (java.util.List<java.time.LocalDate>) request.getAttribute("days");
+  List<LocalDate> days = (List<LocalDate>) request.getAttribute("days");
   @SuppressWarnings("unchecked")
-  java.util.Map<Integer,String> members = (java.util.Map<Integer,String>) request.getAttribute("members");
+  Map<Integer,String> members = (Map<Integer,String>) request.getAttribute("members");
   @SuppressWarnings("unchecked")
-  java.util.Map<Integer, java.util.Map<java.time.LocalDate,String>> grid =
-          (java.util.Map<Integer, java.util.Map<java.time.LocalDate,String>>) request.getAttribute("grid");
+  Map<Integer, Map<LocalDate,String>> grid =
+          (Map<Integer, Map<LocalDate,String>>) request.getAttribute("grid");
 
   DateTimeFormatter dfmt = DateTimeFormatter.ofPattern("d/M");
 %>
