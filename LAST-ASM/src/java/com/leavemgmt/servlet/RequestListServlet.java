@@ -17,44 +17,58 @@ import java.util.List;
 public class RequestListServlet extends HttpServlet {
 
     @Override
+
 protected void doGet(HttpServletRequest request, HttpServletResponse response)
         throws ServletException, IOException {
-    com.leavemgmt.model.User u = (com.leavemgmt.model.User) request.getSession().getAttribute("LOGIN_USER");
+    com.leavemgmt.model.User u =
+        (com.leavemgmt.model.User) request.getSession().getAttribute("LOGIN_USER");
     boolean isTopLevel = (u != null && u.isTopLevel());
+    boolean isLeaf     = (u != null && u.isLeaf());
+
     String scope = request.getParameter("scope");
     com.leavemgmt.dao.RequestDAO dao = new com.leavemgmt.dao.RequestDAO();
 
-    // Top-level: không cho vào "mine" → chuyển sang "team"
+    // Top-level: không cho "mine" => đẩy sang team
     if (isTopLevel && (scope == null || scope.equalsIgnoreCase("mine"))) {
         response.sendRedirect(request.getContextPath() + "/app/request/list?scope=team");
         return;
     }
+    // Leaf: không cho "team" => đẩy sang mine
+    if (isLeaf && (scope != null && scope.equalsIgnoreCase("team"))) {
+        response.sendRedirect(request.getContextPath() + "/app/request/list?scope=mine");
+        return;
+    }
 
     if ("team".equalsIgnoreCase(scope)) {
+        // Team/Subtree cho người quản lý
         java.time.LocalDate now = java.time.LocalDate.now();
         java.sql.Date from = java.sql.Date.valueOf(now.withDayOfYear(1));
         java.sql.Date to   = java.sql.Date.valueOf(now.withMonth(12).withDayOfMonth(31));
 
-        java.util.List<com.leavemgmt.model.LeaveRequest> raw = dao.listSubtree(u.getUserId(), from, to);
+        java.util.List<com.leavemgmt.model.LeaveRequest> raw =
+            dao.listSubtree(u.getUserId(), from, to);
 
-        // Giữ CHỈ pending + bỏ đơn của chính mình
+        // Chỉ hiển thị các đơn còn Pending & không hiển thị đơn của chính mình
         java.util.List<com.leavemgmt.model.LeaveRequest> pending = new java.util.ArrayList<>();
         for (com.leavemgmt.model.LeaveRequest r : raw) {
             String st = (r.getStatusName()==null?"":r.getStatusName().trim().toLowerCase());
             boolean isPending = st.equals("inprogress") || st.equals("pending")
                     || st.equals("đang xử lý") || st.equals("dang xu ly");
-            boolean isOwn = r.getCreatedBy()!=null && r.getCreatedBy().equalsIgnoreCase(u.getFullName());
+            boolean isOwn = r.getCreatedBy()!=null &&
+                            r.getCreatedBy().equalsIgnoreCase(u.getFullName());
             if (isPending && !isOwn) pending.add(r);
         }
         request.setAttribute("list", pending);
         request.setAttribute("scope", "team");
     } else {
-        // Chỉ còn nhánh mine cho người KHÔNG top-level
+        // Mine
         java.util.List<com.leavemgmt.model.LeaveRequest> list = dao.listMyRequests(u.getUserId());
         request.setAttribute("list", list);
         request.setAttribute("scope", "mine");
     }
+
     request.getRequestDispatcher("/request_list.jsp").forward(request, response);
 }
+
 
 }
