@@ -78,7 +78,24 @@
 
   <div style="margin-top:10px">
     <button class="btn" type="submit" id="btnSend">Send</button>
-    <a class="btn" href="<%=request.getContextPath()%>/home">Back</a>
+    <button type="button" id="btnBack">Back</button>
+<script>
+  (function () {
+    var btn = document.getElementById('btnBack');
+    btn.addEventListener('click', function () {
+      // Nếu có trang trước cùng origin -> quay lại
+      try {
+        if (document.referrer && new URL(document.referrer).origin === location.origin) {
+          history.back();
+          return;
+        }
+      } catch (e) { /* bỏ qua */ }
+      // Fallback: về trang My Requests (route bạn đã có)
+      location.href = '<%=request.getContextPath()%>/app/request/list?scope=mine';
+    });
+  })();
+</script>
+
   </div>
 </form>
 
