@@ -8,16 +8,22 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.sql.Date;
+import java.util.List;
 
 @WebServlet(name="RequestCreateServlet", urlPatterns={"/app/request/create"})
 public class RequestCreateServlet extends HttpServlet {
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws ServletException, IOException {
-        // chỉ forward JSP; popup sẽ tự hiển thị nếu có ?createdId=...
-        request.getRequestDispatcher("/request_create.jsp").forward(request, response);
-    }
+
+protected void doGet(HttpServletRequest request, HttpServletResponse response)
+        throws ServletException, IOException {
+    java.util.List<com.leavemgmt.model.LeaveType> types =
+            new com.leavemgmt.dao.LeaveTypeDAO().listActive();
+    request.setAttribute("types", types);
+    request.getRequestDispatcher("/request_create.jsp").forward(request, response);
+}
+
+
 
 
     @Override
