@@ -18,21 +18,18 @@
     <a href="<%=request.getContextPath()%>/app/request/list?scope=mine">My Requests</a> |
   <% } %>
 
-  <%-- Team/Subtree: ẨN HẲN đối với leaf --%>
   <% if (!isLeaf) { %>
     <a href="<%=request.getContextPath()%>/app/request/list?scope=team">Team/Subtree</a> |
   <% } %>
 
   <% if (isTopLevel) { %>
     <a href="<%=request.getContextPath()%>/app/audit/logs">Audit Log</a> |
-  <% } %>
-
-  <% if (!isLeaf) { %>
-    <a href="<%=request.getContextPath()%>/app/agenda">Agenda</a> |
+    <a href="<%=request.getContextPath()%>/app/agenda">Agenda</a> |   <!-- chỉ cấp cao nhất -->
   <% } %>
 
   <a href="<%=request.getContextPath()%>/logout">Logout</a>
 </nav>
+
 
 <%
   String flash = (String) session.getAttribute("FLASH_MSG");

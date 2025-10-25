@@ -15,9 +15,9 @@ import java.time.temporal.ChronoUnit;
 import java.util.*;
 
 /**
- * Agenda ma trận theo tuần (xanh=đi làm/ chờ duyệt, đỏ=đã duyệt nghỉ, chủ nhật xám).
- * - Ẩn người cấp cao nhất: chính user đang đăng nhập.
- * - Phân trang theo tuần dựa vào tham số week (0-based).
+ * Agenda ma trận theo tuần (xanh=đi làm/chờ duyệt, đỏ=đã duyệt nghỉ, Chủ nhật xám).
+ * Chỉ NHÂN SỰ CẤP CAO NHẤT (division gốc) mới được xem.
+ * Ẩn chính người xem khỏi danh sách nhân sự.
  */
 @WebServlet(name = "AgendaServlet", urlPatterns = {"/app/agenda"})
 public class AgendaServlet extends HttpServlet {
@@ -28,45 +28,47 @@ public class AgendaServlet extends HttpServlet {
 
         User u = (User) req.getSession().getAttribute("LOGIN_USER");
         if (u == null) { resp.sendRedirect(req.getContextPath()+"/login"); return; }
-        if (u.isLeaf()) {
-            req.getSession().setAttribute("FLASH_MSG", "Bạn không có quyền xem Agenda.");
+
+        AgendaDAO dao = new AgendaDAO();
+
+        // Quyền: chỉ cấp cao nhất mới xem Agenda
+        if (!dao.isTopMostUser(u.getUserId())) {
+            req.getSession().setAttribute("FLASH_MSG", "Chỉ nhân sự cấp cao nhất mới được xem Agenda.");
             resp.sendRedirect(req.getContextPath()+"/app/home");
             return;
         }
 
-        // ----- Lấy khoảng ngày gốc -----
+        // Khoảng ngày gốc
         LocalDate today = LocalDate.now();
         LocalDate start = parseLD(req.getParameter("start"), today);
         LocalDate end   = parseLD(req.getParameter("end")  , start.plusDays(27)); // mặc định 4 tuần
         if (end.isBefore(start)) end = start;
 
-        // ----- Tính tuần hiện tại (0-based) -----
+        // Tuần hiện tại (0-based)
         int weekParam = parseInt(req.getParameter("week"), 0);
         long totalDays = ChronoUnit.DAYS.between(start, end) + 1; // inclusive
         int totalWeeks = (int)Math.ceil(totalDays / 7.0);
-
+        if (totalWeeks <= 0) totalWeeks = 1;
         if (weekParam < 0) weekParam = 0;
         if (weekParam > totalWeeks - 1) weekParam = totalWeeks - 1;
 
-        // ----- Cửa sổ tuần: pageStart..pageEnd -----
+        // Cửa sổ tuần
         LocalDate pageStart = start.plusDays(weekParam * 7L);
-        LocalDate pageEnd = pageStart.plusDays(6);
+        LocalDate pageEnd   = pageStart.plusDays(6);
         if (pageEnd.isAfter(end)) pageEnd = end;
 
         boolean hasPrev = weekParam > 0;
         boolean hasNext = (weekParam < totalWeeks - 1);
 
-        // ----- Danh sách ngày của tuần đang xem -----
+        // Các ngày của tuần
         List<LocalDate> days = new ArrayList<>();
         for (LocalDate d = pageStart; !d.isAfter(pageEnd); d = d.plusDays(1)) days.add(d);
 
-        AgendaDAO dao = new AgendaDAO();
-
-        // ----- Thành viên (ẩn người đang đăng nhập = cấp cao nhất trong scope) -----
+        // Thành viên (ẩn chính người xem)
         Map<Integer, String> members = dao.loadTeamMembers(u.getUserId());
-        members.remove(u.getUserId()); // bỏ người cấp cao nhất
+        members.remove(u.getUserId());
 
-        // ----- Grid mặc định (work) -----
+        // Grid mặc định (work)
         Map<Integer, Map<LocalDate, String>> grid = new LinkedHashMap<>();
         for (Integer uid : members.keySet()) {
             Map<LocalDate, String> row = new HashMap<>();
@@ -74,7 +76,7 @@ public class AgendaServlet extends HttpServlet {
             grid.put(uid, row);
         }
 
-        // ----- Lấy đơn chồng lấn trong tuần đang xem, chỉ tô đỏ khi đã duyệt -----
+        // Đơn chồng lấn trong tuần → chỉ tô đỏ khi approved
         List<AgendaDAO.LeaveSpan> leaves =
                 dao.loadLeavesForTeam(u.getUserId(), Date.valueOf(pageStart), Date.valueOf(pageEnd));
 
@@ -90,13 +92,12 @@ public class AgendaServlet extends HttpServlet {
 
             for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
                 if ("approved".equals(lv.normStatus)) {
-                    row.put(d, "leave");   // chỉ đỏ khi đã duyệt
+                    row.put(d, "leave");   // đỏ khi đã duyệt
                 }
-                // còn lại giữ "work" (xanh) — chờ duyệt cũng xanh
             }
         }
 
-        // ----- Xuất cho JSP -----
+        // Xuất cho JSP
         req.setAttribute("start", start);
         req.setAttribute("end", end);
         req.setAttribute("week", weekParam);
@@ -116,7 +117,6 @@ public class AgendaServlet extends HttpServlet {
         try { return (s == null || s.isBlank()) ? defVal : LocalDate.parse(s); }
         catch (Exception ignore) { return defVal; }
     }
-
     private int parseInt(String s, int defVal) {
         try { return (s == null || s.isBlank()) ? defVal : Integer.parseInt(s); }
         catch (Exception ignore) { return defVal; }
