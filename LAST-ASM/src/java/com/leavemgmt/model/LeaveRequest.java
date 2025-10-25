@@ -3,44 +3,49 @@ package com.leavemgmt.model;
 import java.sql.Date;
 
 public class LeaveRequest {
-    private int requestId;
+    private int    requestId;
     private String requestCode;
-    private String typeCode;
-    private String reasonCode;
-    private Date fromDate;
-    private Date toDate;
-    private String createdBy;
-    private String statusName;
-    private Integer daysBusiness;
-    private String processedBy;
 
-    public int getRequestId(){ return requestId; }
-    public void setRequestId(int requestId){ this.requestId = requestId; }
+    private int    leaveTypeId;
+    private String leaveTypeName;
 
-    public String getRequestCode(){ return requestCode; }
-    public void setRequestCode(String requestCode){ this.requestCode = requestCode; }
+    private String reason;
+    private Date   fromDate;
+    private Date   toDate;
 
-    public String getTypeCode(){ return typeCode; }
-    public void setTypeCode(String typeCode){ this.typeCode = typeCode; }
+    private String statusCode;        // <-- So sánh bằng CODE
 
-    public String getReasonCode(){ return reasonCode; }
-    public void setReasonCode(String reasonCode){ this.reasonCode = reasonCode; }
+    private int    createdByUserId;
+    private String createdByName;
 
-    public Date getFromDate(){ return fromDate; }
-    public void setFromDate(Date fromDate){ this.fromDate = fromDate; }
+    // getters/setters...
+    public int getRequestId() { return requestId; }
+    public void setRequestId(int requestId) { this.requestId = requestId; }
 
-    public Date getToDate(){ return toDate; }
-    public void setToDate(Date toDate){ this.toDate = toDate; }
+    public String getRequestCode() { return requestCode; }
+    public void setRequestCode(String requestCode) { this.requestCode = requestCode; }
 
-    public String getCreatedBy(){ return createdBy; }
-    public void setCreatedBy(String createdBy){ this.createdBy = createdBy; }
+    public int getLeaveTypeId() { return leaveTypeId; }
+    public void setLeaveTypeId(int leaveTypeId) { this.leaveTypeId = leaveTypeId; }
 
-    public String getStatusName(){ return statusName; }
-    public void setStatusName(String statusName){ this.statusName = statusName; }
+    public String getLeaveTypeName() { return leaveTypeName; }
+    public void setLeaveTypeName(String leaveTypeName) { this.leaveTypeName = leaveTypeName; }
 
-    public Integer getDaysBusiness(){ return daysBusiness; }
-    public void setDaysBusiness(Integer daysBusiness){ this.daysBusiness = daysBusiness; }
+    public String getReason() { return reason; }
+    public void setReason(String reason) { this.reason = reason; }
 
-    public String getProcessedBy(){ return processedBy; }
-    public void setProcessedBy(String processedBy){ this.processedBy = processedBy; }
+    public Date getFromDate() { return fromDate; }
+    public void setFromDate(Date fromDate) { this.fromDate = fromDate; }
+
+    public Date getToDate() { return toDate; }
+    public void setToDate(Date toDate) { this.toDate = toDate; }
+
+    public String getStatusCode() { return statusCode; }
+    public void setStatusCode(String statusCode) { this.statusCode = statusCode; }
+
+    public int getCreatedByUserId() { return createdByUserId; }
+    public void setCreatedByUserId(int createdByUserId) { this.createdByUserId = createdByUserId; }
+
+    public String getCreatedByName() { return createdByName; }
+    public void setCreatedByName(String createdByName) { this.createdByName = createdByName; }
 }

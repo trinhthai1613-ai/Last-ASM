@@ -1,72 +1,47 @@
 package com.leavemgmt.servlet;
 
 import com.leavemgmt.dao.RequestDAO;
+import com.leavemgmt.model.LeaveRequest;
 import com.leavemgmt.model.User;
+
 import jakarta.servlet.ServletException;
 import jakarta.servlet.annotation.WebServlet;
 import jakarta.servlet.http.*;
-
 import java.io.IOException;
+import java.time.LocalDate;
 import java.sql.Date;
-import java.util.List;
 
-@WebServlet(name="RequestCreateServlet", urlPatterns={"/app/request/create"})
+@WebServlet(name = "RequestCreateServlet", urlPatterns = {"/app/request/create"})
 public class RequestCreateServlet extends HttpServlet {
 
-    @Override
-
-protected void doGet(HttpServletRequest request, HttpServletResponse response)
-        throws ServletException, IOException {
-    java.util.List<com.leavemgmt.model.LeaveType> types =
-            new com.leavemgmt.dao.LeaveTypeDAO().listActive();
-    request.setAttribute("types", types);
-    request.getRequestDispatcher("/request_create.jsp").forward(request, response);
-}
-
-
-
+    private final RequestDAO requestDAO = new RequestDAO();
 
     @Override
-protected void doPost(HttpServletRequest request, HttpServletResponse response)
-        throws ServletException, IOException {
+    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
+            throws ServletException, IOException {
 
-    User u = (User) request.getSession().getAttribute("LOGIN_USER");
-    if (u == null) {
-        response.sendRedirect(request.getContextPath() + "/login");
-        return;
+        User u = (User) req.getSession().getAttribute("LOGIN_USER");
+
+        // Lấy tham số
+        int typeId = Integer.parseInt(req.getParameter("typeId"));
+        String reason = req.getParameter("reason");
+        if (reason != null && reason.isBlank()) reason = null;
+
+        LocalDate fromLd = LocalDate.parse(req.getParameter("from"));
+        LocalDate toLd   = LocalDate.parse(req.getParameter("to"));
+
+        // Gán vào model
+        LeaveRequest r = new LeaveRequest();
+        r.setLeaveTypeId(typeId);
+        r.setReason(reason);                           // QUAN TRỌNG
+        r.setFromDate(Date.valueOf(fromLd));
+        r.setToDate(Date.valueOf(toLd));
+        r.setCreatedByUserId(u.getUserId());           // QUAN TRỌNG
+
+        // Tạo đơn
+        int newId = requestDAO.createRequest(r);
+
+        // Redirect (bạn đang bật popup thành công ở trang create)
+        resp.sendRedirect(req.getContextPath()+"/app/request/create?createdId="+newId);
     }
-
-    try {
-        String typeIdStr = request.getParameter("typeId");
-        if (typeIdStr == null || typeIdStr.isBlank()) throw new IllegalArgumentException("Vui lòng chọn loại nghỉ.");
-        int leaveTypeId = Integer.parseInt(typeIdStr);
-
-        String fromStr = request.getParameter("fromDate");
-        String toStr   = request.getParameter("toDate");
-        if (fromStr == null || toStr == null || fromStr.isBlank() || toStr.isBlank())
-            throw new IllegalArgumentException("Vui lòng chọn ngày From/To.");
-
-        java.sql.Date from = java.sql.Date.valueOf(fromStr);
-        java.sql.Date to   = java.sql.Date.valueOf(toStr);
-
-        String reason = request.getParameter("reason");
-        String ro = request.getParameter("reasonOpt");
-        Integer reasonOptionId = null;
-        if (ro != null && !ro.isBlank()) {
-            try { reasonOptionId = Integer.valueOf(ro); } catch (NumberFormatException ignore) { /* dùng null */ }
-        }
-
-        int createdId = new com.leavemgmt.dao.RequestDAO()
-                .createRequest(u.getUserId(), leaveTypeId, reasonOptionId, from, to, reason);
-
-        if (createdId <= 0) throw new RuntimeException("Không lấy được RequestID.");
-
-        // Thành công -> hiện popup
-        response.sendRedirect(request.getContextPath() + "/app/request/create?createdId=" + createdId);
-    } catch (Exception ex) {
-        request.getSession().setAttribute("FLASH_MSG", "Create failed: " + ex.getMessage());
-        response.sendRedirect(request.getContextPath() + "/app/request/create");
-    }
-}
-
 }

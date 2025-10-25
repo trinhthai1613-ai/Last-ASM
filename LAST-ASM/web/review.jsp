@@ -2,24 +2,44 @@
 <%@ page import="com.leavemgmt.model.LeaveRequest" %>
 <!DOCTYPE html>
 <html>
-<head><meta charset="UTF-8"><title>Review</title></head>
-<body style="font-family:Arial, sans-serif">
+<head>
+  <meta charset="UTF-8">
+  <title>Review</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    textarea { width: 60%; min-height: 90px; }
+    .btn { padding: 6px 10px; margin-right: 6px; }
+  </style>
+</head>
+<body>
+
 <%
   LeaveRequest r = (LeaveRequest) request.getAttribute("req");
+  if (r == null) {
+      out.println("<h3>Request not found.</h3>");
+      return;
+  }
+  String reason = r.getReason();
+  if (reason == null || reason.trim().isEmpty()) reason = "-";
 %>
-<h2>Review Request <%= (r!=null?r.getRequestCode():"") %></h2>
-<% if (r!=null) { %>
-  <p>Type: <%=r.getTypeCode()%> | Reason: <%= (r.getReasonCode()!=null?r.getReasonCode():"") %></p>
-  <p>From: <%=r.getFromDate()%> → To: <%=r.getToDate()%> | Days(biz): <%= (r.getDaysBusiness()!=null?r.getDaysBusiness():"") %></p>
-  <p>Created by: <%=r.getCreatedBy()%> | Status: <%=r.getStatusName()%></p>
-  <form method="post">
-    <input type="hidden" name="id" value="<%=r.getRequestId()%>"/>
-    <label>Note:</label><br/>
-    <textarea name="note" rows="3" cols="60"></textarea><br/>
-    <button type="submit" name="action" value="approve">Approve</button>
-    <button type="submit" name="action" value="reject">Reject</button>
-    <a href="<%=request.getContextPath()%>/app/request/list?scope=team">Back</a>
-  </form>
-<% } %>
+
+<h2>Review Request <%= r.getRequestCode() %></h2>
+
+<p>Type: <%= r.getLeaveTypeName() %> | Reason: <%= reason %></p>
+<p>From: <%= r.getFromDate() %> → To: <%= r.getToDate() %></p>
+<p>Created by: <%= r.getCreatedByName() %> | Status: <%= r.getStatusCode() %></p>
+
+<form method="post" action="<%=request.getContextPath()%>/app/request/review">
+  <input type="hidden" name="id" value="<%= r.getRequestId() %>">
+
+  <p>Note:</p>
+  <textarea name="note"><%= request.getAttribute("note") != null ? request.getAttribute("note") : "" %></textarea>
+  <br><br>
+
+  <button class="btn" type="submit" name="decision" value="approve">Approve</button>
+  <button class="btn" type="submit" name="decision" value="reject">Reject</button>
+  <a class="btn" href="javascript:history.back()">Back</a>
+</form>
+
 </body>
 </html>
