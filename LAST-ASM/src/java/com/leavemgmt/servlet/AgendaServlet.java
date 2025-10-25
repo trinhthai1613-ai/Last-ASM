@@ -8,49 +8,79 @@ import jakarta.servlet.http.*;
 
 import java.io.IOException;
 import java.sql.Date;
-import java.util.List;
+import java.time.LocalDate;
+import java.util.*;
 
-@WebServlet(name = "AgendaServlet", urlPatterns = {"/app/agenda"})
+@WebServlet(name="AgendaServlet", urlPatterns={"/app/agenda"})
 public class AgendaServlet extends HttpServlet {
-    private final AgendaDAO dao = new AgendaDAO();
 
     @Override
-    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+    protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
 
-        User u = (User) request.getSession().getAttribute("LOGIN_USER");
-        if (u != null && u.isLeaf()) { // nhân viên cấp thấp nhất -> cấm
-            request.getSession().setAttribute("FLASH_MSG", "Bạn không có quyền xem Agenda.");
-            response.sendRedirect(request.getContextPath() + "/app/home");
+        User u = (User) req.getSession().getAttribute("LOGIN_USER");
+        if (u == null) { resp.sendRedirect(req.getContextPath()+"/login"); return; }
+        // Nhân viên cấp thấp nhất không được xem agenda
+        if (u.isLeaf()) {
+            req.getSession().setAttribute("FLASH_MSG", "Bạn không có quyền xem Agenda.");
+            resp.sendRedirect(req.getContextPath()+"/app/home");
             return;
         }
 
-        List<String[]> divisions = dao.listDivisions();
-        request.setAttribute("divisions", divisions);
+        // Lấy khoảng ngày
+        LocalDate today = LocalDate.now();
+        LocalDate start = parse(req.getParameter("start"), today);
+        LocalDate end   = parse(req.getParameter("end"), start.plusDays(9)); // mặc định 10 ngày
 
-        String divIdStr = request.getParameter("divisionId");
-        String fromStr  = request.getParameter("fromDate");
-        String toStr    = request.getParameter("toDate");
+        if (end.isBefore(start)) end = start;
 
-        if (divIdStr != null && !divIdStr.isBlank()
-                && fromStr != null && !fromStr.isBlank()
-                && toStr != null && !toStr.isBlank()) {
-            try {
-                int divisionId = Integer.parseInt(divIdStr);
-                Date from = Date.valueOf(fromStr);
-                Date to   = Date.valueOf(toStr);
-                request.setAttribute("rows", dao.agendaByDivision(divisionId, from, to));
-                request.setAttribute("divisionId", divIdStr);
-                request.setAttribute("fromDate", fromStr);
-                request.setAttribute("toDate", toStr);
-            } catch (IllegalArgumentException ex) {
-                request.setAttribute("ERROR", "Khoảng ngày không hợp lệ.");
-            }
+        // Tạo danh sách ngày
+        List<LocalDate> days = new ArrayList<>();
+        for (LocalDate d = start; !d.isAfter(end); d = d.plusDays(1)) days.add(d);
+
+        AgendaDAO dao = new AgendaDAO();
+
+        // Danh sách nhân sự trong subtree của quản lý
+        Map<Integer, String> members = dao.loadTeamMembers(u.getUserId());
+
+        // Khởi tạo grid trạng thái mặc định (work)
+        Map<Integer, Map<LocalDate, String>> grid = new LinkedHashMap<>();
+        for (Integer uid : members.keySet()) {
+            Map<LocalDate, String> row = new HashMap<>();
+            for (LocalDate d : days) row.put(d, "work");
+            grid.put(uid, row);
         }
-        request.getRequestDispatcher("/agenda.jsp").forward(request, response);
+
+        // Lấy các đơn nghỉ trùng khoảng
+        dao.loadLeavesForTeam(u.getUserId(), Date.valueOf(start), Date.valueOf(end))
+           .forEach(lv -> {
+               Map<LocalDate, String> row = grid.get(lv.userId);
+               if (row == null) return;
+               LocalDate s = lv.from.isBefore(start) ? start : lv.from.toLocalDate();
+               LocalDate e = lv.to.isAfter(end) ? end : lv.to.toLocalDate();
+
+               for (LocalDate d = s; !d.isAfter(e); d = d.plusDays(1)) {
+                   if ("approved".equals(lv.normStatus)) {
+                       row.put(d, "leave");      // đỏ
+                   } else if ("pending".equals(lv.normStatus)) {
+                       // chỉ tô vàng nếu ô chưa bị đánh đỏ
+                       if (!"leave".equals(row.get(d))) row.put(d, "pending");
+                   }
+               }
+           });
+
+        // Đẩy dữ liệu cho JSP
+        req.setAttribute("start", start);
+        req.setAttribute("end", end);
+        req.setAttribute("days", days);                // List<LocalDate>
+        req.setAttribute("members", members);          // Map<userId, fullName>
+        req.setAttribute("grid", grid);                // Map<userId, Map<LocalDate, "work|leave|pending">>
+
+        req.getRequestDispatcher("/agenda.jsp").forward(req, resp);
     }
 
-    @Override
-    protected void doPost(HttpServletRequest req, HttpServletResponse resp)
-            throws ServletException, IOException { doGet(req, resp); }
+    private LocalDate parse(String s, LocalDate def) {
+        try { return (s==null||s.isBlank()) ? def : LocalDate.parse(s); }
+        catch (Exception e) { return def; }
+    }
 }
