@@ -38,7 +38,7 @@
 <div class="toolbar">
   <form method="get" action="">
     From: <input type="date" name="start" value="<%= start %>">
-    To: <input type="date" name="end" value="<%= end %>">
+    To:   <input type="date" name="end"   value="<%= end %>">
     <button type="submit">View</button>
     &nbsp;&nbsp;
     <a href="<%=request.getContextPath()%>/app/home">Home</a>

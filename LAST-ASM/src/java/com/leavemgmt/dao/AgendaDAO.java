@@ -6,8 +6,9 @@ import java.sql.*;
 import java.util.*;
 
 /**
- * DAO phục vụ Agenda.
- * CTE SubDiv dựa trên cây Divisions(ParentID). Điều chỉnh nếu schema khác.
+ * DAO cho màn Agenda (ma trận).
+ * Lưu ý: Cây phòng ban dùng Divisions.ParentDivisionID.
+ * Trạng thái đơn lấy từ RequestStatuses.StatusCode (APPROVED / INPROGRESS / REJECTED ...).
  */
 public class AgendaDAO {
 
@@ -15,9 +16,14 @@ public class AgendaDAO {
     public Map<Integer, String> loadTeamMembers(int managerUserId) {
         String sql =
             "WITH SubDiv AS (\n" +
-            "  SELECT d.DivisionID FROM dbo.Users u JOIN dbo.Divisions d ON d.DivisionID = u.DivisionID WHERE u.UserID=?\n" +
+            "  SELECT d.DivisionID\n" +
+            "  FROM dbo.Users u\n" +
+            "  JOIN dbo.Divisions d ON d.DivisionID = u.DivisionID\n" +
+            "  WHERE u.UserID = ?\n" +
             "  UNION ALL\n" +
-            "  SELECT c.DivisionID FROM dbo.Divisions c JOIN SubDiv p ON c.ParentID = p.DivisionID\n" +
+            "  SELECT c.DivisionID\n" +
+            "  FROM dbo.Divisions c\n" +
+            "  JOIN SubDiv p ON c.ParentDivisionID = p.DivisionID\n" + // <= SỬA: ParentDivisionID
             ")\n" +
             "SELECT u.UserID, u.FullName\n" +
             "FROM dbo.Users u\n" +
@@ -43,15 +49,24 @@ public class AgendaDAO {
     public List<LeaveSpan> loadLeavesForTeam(int managerUserId, java.sql.Date from, java.sql.Date to) {
         String sql =
             "WITH SubDiv AS (\n" +
-            "  SELECT d.DivisionID FROM dbo.Users u JOIN dbo.Divisions d ON d.DivisionID = u.DivisionID WHERE u.UserID=?\n" +
+            "  SELECT d.DivisionID\n" +
+            "  FROM dbo.Users u\n" +
+            "  JOIN dbo.Divisions d ON d.DivisionID = u.DivisionID\n" +
+            "  WHERE u.UserID = ?\n" +
             "  UNION ALL\n" +
-            "  SELECT c.DivisionID FROM dbo.Divisions c JOIN SubDiv p ON c.ParentID = p.DivisionID\n" +
+            "  SELECT c.DivisionID\n" +
+            "  FROM dbo.Divisions c\n" +
+            "  JOIN SubDiv p ON c.ParentDivisionID = p.DivisionID\n" + // <= SỬA: ParentDivisionID
             ")\n" +
-            "SELECT r.CreatedByUserID AS UserID, r.FromDate, r.ToDate, r.StatusName\n" +
+            "SELECT r.CreatedByUserID   AS UserID,\n" +
+            "       r.FromDate,\n" +
+            "       r.ToDate,\n" +
+            "       s.StatusCode         AS StatusCode\n" +
             "FROM dbo.LeaveRequests r\n" +
-            "JOIN dbo.Users u ON u.UserID = r.CreatedByUserID\n" +
+            "JOIN dbo.RequestStatuses s ON s.StatusID = r.CurrentStatusID\n" +
+            "JOIN dbo.Users u           ON u.UserID   = r.CreatedByUserID\n" +
             "WHERE u.DivisionID IN (SELECT DivisionID FROM SubDiv)\n" +
-            "  AND r.FromDate <= ? AND r.ToDate >= ?";   // overlap
+            "  AND r.FromDate <= ? AND r.ToDate >= ?";  // overlap
 
         List<LeaveSpan> list = new ArrayList<>();
         try (Connection cn = DBConnection.getConnection();
@@ -61,11 +76,11 @@ public class AgendaDAO {
             ps.setDate(3, from);
             try (ResultSet rs = ps.executeQuery()) {
                 while (rs.next()) {
-                    int uid = rs.getInt("UserID");
-                    java.sql.Date f = rs.getDate("FromDate"); // java.sql.Date
-                    java.sql.Date t = rs.getDate("ToDate");   // java.sql.Date
-                    String status = normalizeStatus(rs.getString("StatusName"));
-                    list.add(new LeaveSpan(uid, f, t, status));
+                    int uid            = rs.getInt("UserID");
+                    java.sql.Date f    = rs.getDate("FromDate"); // sql.Date => dùng toLocalDate()
+                    java.sql.Date t    = rs.getDate("ToDate");
+                    String statusCode  = rs.getNString("StatusCode"); // APPROVED / INPROGRESS / REJECTED ...
+                    list.add(new LeaveSpan(uid, f, t, normalizeStatus(statusCode)));
                 }
             }
         } catch (SQLException e) {
@@ -74,23 +89,22 @@ public class AgendaDAO {
         return list;
     }
 
-    /** Chuẩn hóa trạng thái về approved | pending */
-    private String normalizeStatus(String raw) {
-        if (raw == null) return "pending";
-        String s = raw.trim().toLowerCase();
-        if (s.contains("duyệt") || s.equals("approved") || s.equals("đã duyệt") || s.equals("da duyet"))
-            return "approved";
-        if (s.contains("xử lý") || s.equals("inprogress") || s.equals("pending") || s.equals("dang xu ly"))
-            return "pending";
+    /** Chuẩn hóa về approved | pending (các trạng thái khác bỏ qua, coi như work) */
+    private String normalizeStatus(String code) {
+        if (code == null) return "pending";
+        String s = code.trim().toUpperCase();
+        if ("APPROVED".equals(s))   return "approved";
+        if ("INPROGRESS".equals(s)) return "pending";
+        // REJECTED/CANCELLED... -> không màu đặc biệt (work)
         return "pending";
     }
 
     /** DTO khoảng nghỉ */
     public static class LeaveSpan {
         public final int userId;
-        public final java.sql.Date from;  // dùng java.sql.Date để gọi toLocalDate()
+        public final java.sql.Date from; // dùng sql.Date để gọi toLocalDate()
         public final java.sql.Date to;
-        public final String normStatus;
+        public final String normStatus;   // approved | pending
         public LeaveSpan(int userId, java.sql.Date from, java.sql.Date to, String normStatus) {
             this.userId = userId;
             this.from = from;
