@@ -10,11 +10,9 @@
 <%
   User cur = (User) session.getAttribute("LOGIN_USER");
   boolean isTopLevel = (cur != null && cur.isTopLevel());
-  boolean isLeaf = (cur != null && cur.isLeaf());
   String scope = (String) request.getAttribute("scope");
   String title = "team".equalsIgnoreCase(scope) ? "Team/Subtree" : "Mine";
-  if (isTopLevel) title = "Team/Subtree";  // top-level không có "mine"
-  if (isLeaf)     title = "Mine";          // leaf luôn xem mine
+  if (isTopLevel) title = "Team/Subtree";
 %>
 
 <h2>Requests (<%= title %>)</h2>
@@ -23,9 +21,7 @@
   <% if (!isTopLevel) { %>
     <a href="?scope=mine">Mine</a> |
   <% } %>
-  <% if (!isLeaf) { %>
-    <a href="?scope=team">Team/Subtree</a> |
-  <% } %>
+  <!-- BỎ HẲN Team/Subtree -->
   <a href="<%=request.getContextPath()%>/app/home">Home</a>
 </nav>
 
