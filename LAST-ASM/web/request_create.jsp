@@ -1,5 +1,5 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
-<%@ page import="com.leavemgmt.model.User" %>
+<%@ page import="java.util.*, com.leavemgmt.model.User, com.leavemgmt.model.LeaveType" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -9,11 +9,12 @@
   body { font-family: Arial, sans-serif }
   .row { margin: 8px 0 }
   select, input[type=date], textarea { font-size:14px }
+  textarea { width:560px; height:100px }
   .btn { display:inline-block; padding:6px 12px; border:1px solid #444; text-decoration:none; margin-right:8px }
   .btn:hover { background:#eee }
   .alert { color:#b00020; margin:8px 0; }
 
-  /* Popup phủ trắng */
+  /* Popup phủ trắng toàn trang khi tạo xong */
   .modal { position:fixed; inset:0; background:#fff; display:flex; align-items:center; justify-content:center; z-index:9999; }
   .modal-box { background:#fff; border:1px solid #ddd; border-radius:10px; min-width:420px; padding:16px 20px; box-shadow:0 8px 30px rgba(0,0,0,.25) }
   .modal-title { margin:0 0 8px; font-size:18px }
@@ -28,11 +29,14 @@
   User u = (User) session.getAttribute("LOGIN_USER");
   if (u == null) { response.sendRedirect(request.getContextPath()+"/login"); return; }
 
+  @SuppressWarnings("unchecked")
+  List<LeaveType> types = (List<LeaveType>) request.getAttribute("types"); // nạp từ servlet
+
   String createdId = request.getParameter("createdId");
   boolean justCreated = (createdId != null && !createdId.isEmpty());
 
   String flash = (String) session.getAttribute("FLASH_MSG");
-  if (flash != null) { session.removeAttribute("FLASH_MSG"); }
+  if (flash != null) session.removeAttribute("FLASH_MSG");
 %>
 
 <% if (justCreated) { %>
@@ -41,30 +45,28 @@
 
 <h2>Create Leave Request</h2>
 
-<%-- HIỆN LỖI nếu có --%>
-<% if (flash != null) { %><div class="alert"><%= flash %></div><% } %>
+<%-- Thông báo lỗi khi tạo thất bại --%>
+<% if (flash != null) { %>
+  <div class="alert"><%= flash %></div>
+<% } %>
 
 <form method="post" action="<%=request.getContextPath()%>/app/request/create">
   <div class="row">
     <label>Leave Type:&nbsp;</label>
     <select name="typeId" id="typeId" required>
       <option value="">-- Select type --</option>
-      <option value="1" data-need-reason="false">ANNUAL - Nghỉ năm</option>
-      <option value="2" data-need-reason="true"  data-reason-opt="">MARRIAGE - Nghỉ cưới</option>
-      <option value="3" data-need-reason="false">SICK - Nghỉ ốm</option>
-      <option value="4" data-need-reason="false">UNPAID - Nghỉ không lương</option>
-      <option value="99" data-need-reason="true">OTHER - Khác</option>
+      <% if (types != null) {
+           for (LeaveType t : types) { %>
+        <option value="<%= t.getLeaveTypeId() %>" data-code="<%= t.getTypeCode() %>">
+          <%= t.getTypeCode() %> - <%= t.getTypeName() %>
+        </option>
+      <% } } %>
     </select>
-  </div>
-
-  <div class="row" id="reasonOptRow" style="display:none">
-    <label>Reason option:&nbsp;</label>
-    <select name="reasonOpt" id="reasonOpt"></select>
   </div>
 
   <div class="row" id="reasonRow" style="display:none">
     <label>Reason:</label><br/>
-    <textarea name="reason" id="reason" style="width:560px;height:100px"></textarea>
+    <textarea name="reason" id="reason"></textarea>
   </div>
 
   <div class="row">
@@ -81,7 +83,7 @@
   </div>
 </form>
 
-<!-- POPUP THÀNH CÔNG -->
+<!-- POPUP THÀNH CÔNG: chỉ hiển thị sau khi redirect kèm ?createdId=... -->
 <div id="successModal" class="modal <%= justCreated ? "" : "hidden" %>" aria-modal="true" role="dialog">
   <div class="modal-box">
     <h3 class="modal-title">Tạo đơn thành công</h3>
@@ -95,34 +97,24 @@
 </div>
 
 <script>
-  // Không chọn ngày đã qua
+  // Không cho chọn ngày đã qua
   const today = new Date(); today.setHours(0,0,0,0);
   const fmt = d => d.toISOString().slice(0,10);
   const fromEl = document.getElementById('fromDate');
   const toEl   = document.getElementById('toDate');
   fromEl.min = fmt(today); toEl.min = fmt(today);
-  fromEl.addEventListener('change', ()=>{ if (toEl.value < fromEl.value) toEl.value = fromEl.value; toEl.min = fromEl.value; });
+  fromEl.addEventListener('change', () => {
+    if (toEl.value < fromEl.value) toEl.value = fromEl.value;
+    toEl.min = fromEl.value;
+  });
 
-  // Hiện/ẩn reason theo loại
+  // Hiện ô Reason khi chọn OTHER
   const typeEl = document.getElementById('typeId');
   const reasonRow = document.getElementById('reasonRow');
-  const reasonOptRow = document.getElementById('reasonOptRow');
-  const reasonOptEl  = document.getElementById('reasonOpt');
-
-  function refreshReasonUI(){
-    const opt = typeEl.selectedOptions[0]; if (!opt) return;
-    const needReason = opt.getAttribute('data-need-reason') === 'true';
-    const optList = (opt.getAttribute('data-reason-opt') || '').trim();
-
-    reasonRow.style.display    = needReason ? '' : 'none';
-    reasonOptRow.style.display = (optList ? '' : 'none');
-
-    reasonOptEl.innerHTML = '';
-    if (optList) {
-      optList.split(',').forEach(code=>{
-        const o = document.createElement('option'); o.value=code.trim(); o.textContent=code.trim(); reasonOptEl.appendChild(o);
-      });
-    }
+  function refreshReasonUI() {
+    const opt = typeEl.selectedOptions[0];
+    const code = opt ? (opt.getAttribute('data-code')||'') : '';
+    reasonRow.style.display = (code === 'OTHER') ? '' : 'none';
   }
   typeEl.addEventListener('change', refreshReasonUI);
   refreshReasonUI();
