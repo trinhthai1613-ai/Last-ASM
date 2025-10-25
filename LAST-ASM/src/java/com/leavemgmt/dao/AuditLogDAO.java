@@ -8,39 +8,53 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class AuditLogDAO {
-    public List<AuditLog> listAll() {
-        String sql = """
-          SELECT al.LogID, al.OccurredAt, al.ActionType, al.Note,
-                 u.FullName AS ActorName,
-                 r.RequestCode,
-                 al.EntityKey,                -- đọc thêm
-                 al.OldStatus, al.NewStatus
-          FROM dbo.AuditLogs al
-          LEFT JOIN dbo.Users u ON u.UserID = al.ActorUserID
-          LEFT JOIN dbo.LeaveRequests r ON r.RequestID = al.TargetRequestID
-          ORDER BY al.OccurredAt DESC, al.LogID DESC
-        """;
+public List<AuditLog> listAll() {
+    String sql =
+        "SELECT a.LogID, a.OccurredAt, a.Action AS ActionType, a.Note, " +
+        "       u.FullName AS ActorName, " +
+        "       r.RequestID, r.RequestCode, " +
+        "       s.StatusCode AS CurrentStatusCode, " +        // <-- lấy code qua JOIN
+        "       a.OldStatus, a.NewStatus " +
+        "FROM dbo.AuditLogs a " +
+        "LEFT JOIN dbo.Users u           ON u.UserID = a.ActorUserID " +
+        "LEFT JOIN dbo.LeaveRequests r   ON r.RequestID = a.TargetRequestID " +
+        "LEFT JOIN dbo.RequestStatuses s  ON s.StatusID = r.CurrentStatusID " + // <-- JOIN đúng
+        "ORDER BY a.LogID DESC";
 
-        List<AuditLog> list = new ArrayList<>();
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql);
-             ResultSet rs = ps.executeQuery()) {
-            while (rs.next()) {
-                AuditLog a = new AuditLog();
-                a.setLogId(rs.getInt("LogID"));
-                a.setOccurredAt(rs.getTimestamp("OccurredAt"));
-                a.setActionType(rs.getString("ActionType"));
-                a.setNote(rs.getNString("Note"));
-                a.setActorName(rs.getNString("ActorName"));
-                a.setRequestCode(rs.getString("RequestCode"));
-                a.setEntityKey(rs.getString("EntityKey"));          // gán vào model
-                a.setOldStatus(rs.getNString("OldStatus"));
-                a.setNewStatus(rs.getNString("NewStatus"));
-                list.add(a);
+    List<AuditLog> list = new ArrayList<>();
+    try (Connection cn = DBConnection.getConnection();
+         PreparedStatement ps = cn.prepareStatement(sql);
+         ResultSet rs = ps.executeQuery()) {
+
+        while (rs.next()) {
+            AuditLog a = new AuditLog();
+
+            a.setOccurredAt(rs.getTimestamp("OccurredAt"));
+            a.setActionType(rs.getString("ActionType"));
+            a.setNote(rs.getString("Note"));
+            a.setActorName(rs.getString("ActorName"));
+
+            // Request code: ưu tiên dùng cột, nếu null thì format từ ID
+            Integer rid   = (Integer) rs.getObject("RequestID"); // có thể null
+            String reqCode = rs.getString("RequestCode");
+            if (reqCode == null && rid != null) {
+                reqCode = String.format("LR%06d", rid);
             }
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            a.setRequestId(rid);
+            a.setRequestCode(reqCode);
+
+            a.setOldStatus(rs.getString("OldStatus"));
+            a.setNewStatus(rs.getString("NewStatus"));
+
+            // alias phải trùng 'CurrentStatusCode'
+            a.setCurrentStatusCode(rs.getString("CurrentStatusCode"));
+
+            list.add(a);
         }
-        return list;
+    } catch (Exception e) {
+        throw new RuntimeException("listAudit failed", e);
     }
+    return list;
+}
+
 }
