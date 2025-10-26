@@ -148,7 +148,7 @@ public LeaveRequest findById(int id) {
     // ---------------------------------------------------------
     // 4) Tạo đơn
     // ---------------------------------------------------------
-    public int createRequest(LeaveRequest r) {
+     public int createRequest(LeaveRequest r) {
         String sql =
             "INSERT INTO dbo.LeaveRequests(LeaveTypeID, Reason, FromDate, ToDate, " +
             "    CreatedByUserID, CurrentStatusID, CreatedAt) " +
@@ -158,14 +158,12 @@ public LeaveRequest findById(int id) {
             "INSERT INTO dbo.AuditLogs(ActionType, Action, TargetRequestID, ActorUserID, Note) " +
             "VALUES(?, ?, ?, ?, ?);";
 
-
         try (Connection cn = DBConnection.getConnection()) {
             cn.setAutoCommit(false);
             int newId = 0;
             try {
                 try (PreparedStatement ps = cn.prepareStatement(sql)) {
 
-           
                     ps.setInt(1, r.getLeaveTypeId());
                     if (r.getReason() == null || r.getReason().isBlank()) {
                         ps.setNull(2, Types.NVARCHAR);
@@ -176,7 +174,6 @@ public LeaveRequest findById(int id) {
                     ps.setDate(4, r.getToDate());
                     ps.setInt(5, r.getCreatedByUserId());
 
-            
                     try (ResultSet rs = ps.executeQuery()) {
                         if (rs.next()) {
                             newId = rs.getInt(1);
@@ -212,7 +209,92 @@ public LeaveRequest findById(int id) {
         } catch (Exception e) {
             throw new RuntimeException("createRequest failed", e);
         }
- 
+    }
+
+    public void updateRequest(LeaveRequest r, int actorUserId, String note) {
+        String sql =
+            "UPDATE dbo.LeaveRequests " +
+            "SET LeaveTypeID = ?, Reason = ?, FromDate = ?, ToDate = ? " +
+            "WHERE RequestID = ?";
+        String auditSql =
+            "INSERT INTO dbo.AuditLogs(ActionType, Action, TargetRequestID, ActorUserID, Note) " +
+            "VALUES(?, ?, ?, ?, ?);";
+
+        try (Connection cn = DBConnection.getConnection()) {
+            cn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = cn.prepareStatement(sql)) {
+                    ps.setInt(1, r.getLeaveTypeId());
+                    if (r.getReason() == null || r.getReason().isBlank()) {
+                        ps.setNull(2, Types.NVARCHAR);
+                    } else {
+                        ps.setNString(2, r.getReason());
+                    }
+                    ps.setDate(3, r.getFromDate());
+                    ps.setDate(4, r.getToDate());
+                    ps.setInt(5, r.getRequestId());
+                    int rows = ps.executeUpdate();
+                    if (rows == 0) {
+                        throw new SQLException("No request was updated");
+                    }
+                }
+
+                try (PreparedStatement psAudit = cn.prepareStatement(auditSql)) {
+                    psAudit.setString(1, "UPDATE");
+                    psAudit.setString(2, "UPDATE");
+                    psAudit.setInt(3, r.getRequestId());
+                    psAudit.setInt(4, actorUserId);
+                    if (note == null || note.isBlank()) {
+                        psAudit.setNull(5, Types.NVARCHAR);
+                    } else {
+                        psAudit.setNString(5, note.trim());
+                    }
+                    psAudit.executeUpdate();
+                }
+
+                cn.commit();
+            } catch (Exception ex) {
+                try { cn.rollback(); } catch (SQLException ignore) {}
+                throw ex;
+            } finally {
+                try { cn.setAutoCommit(true); } catch (SQLException ignore) {}
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("updateRequest failed", e);
+        }
+    }
+
+    public boolean isManagerOf(int managerUserId, int targetUserId) {
+        if (managerUserId <= 0 || targetUserId <= 0) return false;
+
+        final String sql =
+            "WITH Subtree AS (\n" +
+            "    SELECT u.UserID\n" +
+            "    FROM dbo.Users u\n" +
+            "    WHERE u.UserID = ?\n" +
+            "    UNION ALL\n" +
+            "    SELECT u2.UserID\n" +
+            "    FROM dbo.Users u2\n" +
+            "    JOIN Subtree st ON u2.CurrentManagerID = st.UserID\n" +
+            ")\n" +
+            "SELECT 1 FROM Subtree WHERE UserID = ? OPTION (MAXRECURSION 100);";
+
+        try (Connection cn = DBConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(sql)) {
+
+            
+            ps.setInt(1, managerUserId);
+            ps.setInt(2, targetUserId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+    
+                return rs.next();
+            }
+
+        } catch (SQLException e) {
+            throw new RuntimeException("isManagerOf failed", e);
+        }
+
     }
     // Lấy danh sách loại nghỉ để render combobox
 public java.util.List<com.leavemgmt.model.LeaveType> listTypes() {
