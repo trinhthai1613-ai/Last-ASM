@@ -12,6 +12,8 @@ import jakarta.servlet.http.HttpServletResponse;
 
 import java.io.IOException;
 import java.sql.Date;
+import java.time.Duration;
+import java.time.Instant;
 import java.time.LocalDate;
 
 @WebServlet(name = "RequestEditServlet", urlPatterns = {"/app/request/edit"})
@@ -36,19 +38,26 @@ public class RequestEditServlet extends HttpServlet {
             return;
         }
 
-        if (!canEdit(cur, target)) {
-            resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+        String scope = normalizeScope(req.getParameter("scope"));
+        if (scope == null) {
+            scope = (target.getCreatedByUserId() == cur.getUserId()) ? "mine" : "team";
+        }
+
+        if (!canOwnerEdit(cur, target)) {
+            if (cur.getUserId() == target.getCreatedByUserId()) {
+                req.getSession().setAttribute("FLASH_MSG",
+                        "Bạn chỉ có thể chỉnh sửa đơn trong vòng 1 giờ sau khi tạo.");
+                resp.sendRedirect(req.getContextPath() + "/app/request/list?scope=" + scope);
+            } else {
+                resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+            }
             return;
         }
 
         req.setAttribute("req", target);
         req.setAttribute("types", requestDAO.listTypes());
-
-        String scope = normalizeScope(req.getParameter("scope"));
-        if (scope == null) {
-            scope = (target.getCreatedByUserId() == cur.getUserId()) ? "mine" : "team";
-        }
         req.setAttribute("returnScope", scope);
+        req.setAttribute("minutesRemaining", Long.valueOf(calculateMinutesRemaining(target)));
 
         req.getRequestDispatcher("/request_edit.jsp").forward(req, resp);
     }
@@ -70,14 +79,20 @@ public class RequestEditServlet extends HttpServlet {
             return;
         }
 
-        if (!canEdit(cur, existing)) {
-            resp.sendError(HttpServletResponse.SC_FORBIDDEN);
-            return;
-        }
-
         String scope = normalizeScope(req.getParameter("returnScope"));
         if (scope == null) {
             scope = (existing.getCreatedByUserId() == cur.getUserId()) ? "mine" : "team";
+        }
+
+        if (!canOwnerEdit(cur, existing)) {
+            if (cur.getUserId() == existing.getCreatedByUserId()) {
+                req.getSession().setAttribute("FLASH_MSG",
+                        "Đơn đã quá hạn 1 giờ nên không thể chỉnh sửa nữa.");
+                resp.sendRedirect(req.getContextPath() + "/app/request/list?scope=" + scope);
+            } else {
+                resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+            }
+            return;
         }
 
         try {
@@ -123,18 +138,22 @@ public class RequestEditServlet extends HttpServlet {
             req.setAttribute("req", existing);
             req.setAttribute("types", requestDAO.listTypes());
             req.setAttribute("returnScope", scope);
+            req.setAttribute("minutesRemaining", Long.valueOf(calculateMinutesRemaining(existing)));
 
             req.getRequestDispatcher("/request_edit.jsp").forward(req, resp);
         }
     }
 
-    private boolean canEdit(User actor, LeaveRequest target) {
+    private boolean canOwnerEdit(User actor, LeaveRequest target) {
         if (actor == null || target == null) return false;
+        if (actor.getUserId() != target.getCreatedByUserId()) return false;
 
-        if (actor.isTopLevel()) return true;
-        if (actor.getUserId() == target.getCreatedByUserId()) return true;
+        String status = target.getStatusCode();
+        if (status == null || !"INPROGRESS".equalsIgnoreCase(status)) {
+            return false;
+        }
 
-        return requestDAO.isManagerOf(actor.getUserId(), target.getCreatedByUserId());
+        return isWithinOwnerWindow(target);
     }
 
     private String normalizeScope(String raw) {
@@ -142,5 +161,48 @@ public class RequestEditServlet extends HttpServlet {
         if ("team".equalsIgnoreCase(raw)) return "team";
         if ("mine".equalsIgnoreCase(raw)) return "mine";
         return null;
+    }
+
+    private boolean isWithinOwnerWindow(LeaveRequest target) {
+        if (target == null || target.getCreatedAt() == null) {
+            return false;
+        }
+
+        Instant created = target.getCreatedAt().toInstant();
+        Instant now = Instant.now();
+        Duration elapsed = Duration.between(created, now);
+        if (elapsed.isNegative()) {
+            elapsed = Duration.ZERO;
+        }
+
+        return elapsed.compareTo(Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES)) <= 0;
+    }
+
+    private long calculateMinutesRemaining(LeaveRequest target) {
+        if (target == null || target.getCreatedAt() == null) {
+            return 0;
+        }
+
+        if (!isWithinOwnerWindow(target)) {
+            return 0;
+        }
+
+        Instant created = target.getCreatedAt().toInstant();
+        Duration elapsed = Duration.between(created, Instant.now());
+        if (elapsed.isNegative()) {
+            elapsed = Duration.ZERO;
+        }
+
+        Duration window = Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES);
+        Duration remaining = window.minus(elapsed);
+        if (remaining.isNegative()) {
+            return 0;
+        }
+
+        long seconds = remaining.getSeconds();
+        if (seconds <= 0) {
+            return 0;
+        }
+        return (seconds + 59) / 60;
     }
 }

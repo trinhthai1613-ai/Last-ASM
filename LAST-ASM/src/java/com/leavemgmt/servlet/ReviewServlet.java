@@ -18,18 +18,27 @@ public class ReviewServlet extends HttpServlet {
     private final RequestDAO requestDAO = new RequestDAO();
 
     // Chuẩn hóa dùng CODE, không so sánh tên hiển thị
-    private static final String CODE_INPROGRESS = "INPROGRESS";
+   
     private static final String CODE_APPROVED   = "APPROVED";
     private static final String CODE_REJECTED   = "REJECTED";
 
     @Override
     protected void doGet(HttpServletRequest req, HttpServletResponse resp)
             throws ServletException, IOException {
+        User cur = (User) req.getSession().getAttribute("LOGIN_USER");
+        if (cur == null) {
+            resp.sendRedirect(req.getContextPath() + "/login");
+            return;
+        }
 
         int id = Integer.parseInt(req.getParameter("id"));
         LeaveRequest lr = requestDAO.findById(id);
         if (lr == null) {
             resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
+        if (!canReview(cur, lr)) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
         }
         req.setAttribute("req", lr);
@@ -47,8 +56,17 @@ public class ReviewServlet extends HttpServlet {
         }
 
         int id = Integer.parseInt(req.getParameter("id"));
+        LeaveRequest existing = requestDAO.findById(id);
+        if (existing == null) {
+            resp.sendError(HttpServletResponse.SC_NOT_FOUND);
+            return;
+        }
         String decision = req.getParameter("decision"); // approve | reject
         String note = req.getParameter("note"); // có thể null
+        if (!canReview(cur, existing)) {
+            resp.sendError(HttpServletResponse.SC_FORBIDDEN);
+            return;
+        }
 
         // map quyết định sang STATUS CODE
         String code;
@@ -65,10 +83,21 @@ public class ReviewServlet extends HttpServlet {
         requestDAO.updateStatusByCode(id, code, cur.getUserId(), note);
 
         // flash + quay lại danh sách team
-        String msg = "Request #" + id + ("approve".equalsIgnoreCase(decision)
-                ? " has been APPROVED." : " has been REJECTED.");
+       String msg = "Request #" + id + " status updated to " + code + ".";
         req.getSession().setAttribute("FLASH_MSG", msg);
 
         resp.sendRedirect(req.getContextPath() + "/app/request/list?scope=team");
+    }
+    private boolean canReview(User actor, LeaveRequest target) {
+        if (actor == null || target == null) {
+            return false;
+        }
+        if (actor.isTopLevel()) {
+            return true;
+        }
+        if (actor.getUserId() == target.getCreatedByUserId()) {
+            return false;
+        }
+        return requestDAO.isManagerOf(actor.getUserId(), target.getCreatedByUserId());
     }
 }

@@ -1,7 +1,10 @@
 <%@ page contentType="text/html; charset=UTF-8" %>
 <%@ page import="java.util.List" %>
+<%@ page import="java.time.Duration" %>
+<%@ page import="java.time.Instant" %>
 <%@ page import="com.leavemgmt.model.LeaveRequest" %>
 <%@ page import="com.leavemgmt.model.User" %>
+<%@ page import="com.leavemgmt.dao.RequestDAO" %>
 <!DOCTYPE html>
 <html>
 <head>
@@ -36,6 +39,16 @@
   <a href="<%=request.getContextPath()%>/app/home">Home</a>
 </p>
 
+<%
+  String flash = (String) session.getAttribute("FLASH_MSG");
+  if (flash != null) {
+%>
+  <p style="color:green"><%= flash %></p>
+<%
+    session.removeAttribute("FLASH_MSG");
+  }
+%>
+
 <table>
   <thead>
     <tr>
@@ -47,9 +60,8 @@
       <th>Created By</th>
       <th>Status</th>
       <th>Days (biz)</th>
-      <% if ("team".equalsIgnoreCase(scope)) { %>
-        <th>Action</th>
-      <% } %>
+
+      <th>Actions</th>
     </tr>
   </thead>
   <tbody>
@@ -64,6 +76,17 @@
        }
        boolean isPending = "INPROGRESS".equalsIgnoreCase(code);
        boolean isOwn = r.getCreatedByUserId() == cur.getUserId();
+       java.sql.Timestamp createdAt = r.getCreatedAt();
+       boolean withinOwnerWindow = false;
+       if (createdAt != null) {
+         Duration elapsed = Duration.between(createdAt.toInstant(), Instant.now());
+         if (elapsed.isNegative()) elapsed = Duration.ZERO;
+         withinOwnerWindow = elapsed.compareTo(Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES)) <= 0;
+       }
+       boolean showEdit = isOwn && isPending && withinOwnerWindow;
+       boolean canReview = "team".equalsIgnoreCase(scope) && (cur.isTopLevel() || !isOwn);
+       boolean reviewableStatus = "INPROGRESS".equalsIgnoreCase(code) || "APPROVED".equalsIgnoreCase(code) || "REJECTED".equalsIgnoreCase(code);
+       boolean showReview = canReview && reviewableStatus;
   %>
     <tr>
       <td><%= r.getRequestCode()==null ? ("LR"+r.getRequestId()) : r.getRequestCode() %></td>
@@ -75,13 +98,30 @@
       <td><%= statusVi %></td>
       <td><%= r.getBizDays()==null ? "" : r.getBizDays() %></td>
 
-      <% if ("team".equalsIgnoreCase(scope)) { %>
-        <td>
-          <% if (isPending && !isOwn) { %>
+
+      <td>
+        <%
+          String scopeParam = "team".equalsIgnoreCase(scope) ? "team" : "mine";
+          boolean hasAction = false;
+          if (showEdit) {
+        %>
+            <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=<%=scopeParam%>">Edit</a>
+        <%
+            hasAction = true;
+          }
+          if (showReview) {
+            if (hasAction) { out.print(" | "); }
+        %>
             <a href="<%=request.getContextPath()%>/app/request/review?id=<%=r.getRequestId()%>">Review</a>
-          <% } else { %>-<% } %>
-        </td>
-      <% } %>
+    
+        <%
+            hasAction = true;
+          }
+          if (!hasAction) {
+            out.print("-");
+          }
+        %>
+      </td>
     </tr>
   <% } %>
   </tbody>
