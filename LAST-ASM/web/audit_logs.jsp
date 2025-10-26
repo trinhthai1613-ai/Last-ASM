@@ -69,7 +69,7 @@
       <th style="width:100px;">Action</th>
       <th style="width:140px;">Request Code</th>
       <th>Status</th>
-      <th>Note</th>
+   
     </tr>
   </thead>
   <tbody>
@@ -83,7 +83,7 @@
       <td><%= a.getActionType() %></td>
       <td><%= a.getRequestCode() == null ? "" : a.getRequestCode() %></td>
       <td><%= renderStatus.apply(a) %></td>
-      <td><%= a.getNote() == null ? "" : a.getNote() %></td>
+
     </tr>
   <%
       }

@@ -112,9 +112,7 @@ public class RequestEditServlet extends HttpServlet {
             update.setFromDate(Date.valueOf(fromLd));
             update.setToDate(Date.valueOf(toLd));
 
-            String note = req.getParameter("note");
-
-            requestDAO.updateRequest(update, cur.getUserId(), note);
+            requestDAO.updateRequest(update, cur.getUserId());
 
             req.getSession().setAttribute("FLASH_MSG", "Request #" + id + " has been updated.");
             resp.sendRedirect(req.getContextPath() + "/app/request/list?scope=" + scope);

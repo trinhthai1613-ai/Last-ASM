@@ -89,11 +89,6 @@
     <input type="date" id="to" name="to" value="<%= r.getToDate()==null?"":r.getToDate() %>" required>
   </div>
 
-  <div>
-    <label>Update note:</label>
-    <textarea id="note" name="note" placeholder="Ghi chú cho lần chỉnh sửa này (tùy chọn)"></textarea>
-  </div>
-
   <div style="margin-top:10px">
     <button class="btn" type="submit">Save changes</button>
     <button type="button" id="btnCancel">Cancel</button>

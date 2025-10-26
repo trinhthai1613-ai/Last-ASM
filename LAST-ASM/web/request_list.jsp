@@ -29,9 +29,10 @@
   List<LeaveRequest> list = (List<LeaveRequest>) request.getAttribute("list");
   if (list == null) list = java.util.Collections.emptyList();
 
-  String title = "Requests";
-  if ("team".equalsIgnoreCase(scope)) title = "Requests (Team/Subtree)";
-  else title = "Requests (Mine)";
+  
+  boolean teamScope = "team".equalsIgnoreCase(scope);
+  String title = teamScope ? "Requests (Team/Subtree)" : "Requests (Mine)";
+  boolean showActionsColumn = teamScope;
 %>
 
 <h2><%= title %></h2>
@@ -61,7 +62,9 @@
       <th>Status</th>
       <th>Days (biz)</th>
 
-      <th>Actions</th>
+      <% if (showActionsColumn) { %>
+        <th>Actions</th>
+      <% } %>
     </tr>
   </thead>
   <tbody>
@@ -84,12 +87,24 @@
          withinOwnerWindow = elapsed.compareTo(Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES)) <= 0;
        }
        boolean showEdit = isOwn && isPending && withinOwnerWindow;
-       boolean canReview = "team".equalsIgnoreCase(scope) && (cur.isTopLevel() || !isOwn);
+       boolean canReview = teamScope && (cur.isTopLevel() || !isOwn);
        boolean reviewableStatus = "INPROGRESS".equalsIgnoreCase(code) || "APPROVED".equalsIgnoreCase(code) || "REJECTED".equalsIgnoreCase(code);
        boolean showReview = canReview && reviewableStatus;
   %>
     <tr>
-      <td><%= r.getRequestCode()==null ? ("LR"+r.getRequestId()) : r.getRequestCode() %></td>
+   
+      <td>
+        <%
+          String displayCode = r.getRequestCode()==null ? ("LR"+r.getRequestId()) : r.getRequestCode();
+          if (showEdit && !showActionsColumn) {
+        %>
+            <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=mine"><%= displayCode %></a>
+        <%
+          } else {
+            out.print(displayCode);
+          }
+        %>
+      </td>
       <td><%= r.getTypeName()==null ? r.getLeaveTypeId() : r.getTypeName() %></td>
       <td><%= r.getReason()==null ? "" : r.getReason() %></td>
       <td><%= r.getFromDate() %></td>
@@ -98,30 +113,32 @@
       <td><%= statusVi %></td>
       <td><%= r.getBizDays()==null ? "" : r.getBizDays() %></td>
 
+ 
+      <% if (showActionsColumn) { %>
+        <td>
 
-      <td>
-        <%
-          String scopeParam = "team".equalsIgnoreCase(scope) ? "team" : "mine";
-          boolean hasAction = false;
-          if (showEdit) {
-        %>
-            <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=<%=scopeParam%>">Edit</a>
-        <%
-            hasAction = true;
-          }
-          if (showReview) {
-            if (hasAction) { out.print(" | "); }
-        %>
-            <a href="<%=request.getContextPath()%>/app/request/review?id=<%=r.getRequestId()%>">Review</a>
-    
-        <%
-            hasAction = true;
-          }
-          if (!hasAction) {
-            out.print("-");
-          }
-        %>
-      </td>
+          <%
+            String scopeParam = teamScope ? "team" : "mine";
+            boolean hasAction = false;
+            if (showEdit) {
+          %>
+              <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=<%=scopeParam%>">Edit</a>
+          <%
+                hasAction = true;
+            }
+            if (showReview) {
+              if (hasAction) { out.print(" | "); }
+          %>
+              <a href="<%=request.getContextPath()%>/app/request/review?id=<%=r.getRequestId()%>">Review</a>
+          <%
+              hasAction = true;
+            }
+            if (!hasAction) {
+              out.print("-");
+            }
+          %>
+        </td>
+      <% } %>
     </tr>
   <% } %>
   </tbody>

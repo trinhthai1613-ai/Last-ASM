@@ -75,6 +75,96 @@ public class RequestDAO {
         }
     }
 
+    public void updateRequest(LeaveRequest r, int actorUserId) {
+        String sql =
+            "UPDATE dbo.LeaveRequests " +
+            "SET LeaveTypeID = ?, Reason = ?, FromDate = ?, ToDate = ? " +
+            "WHERE RequestID = ? " +
+            "  AND CurrentStatusID = (SELECT StatusID FROM dbo.RequestStatuses WHERE StatusCode='INPROGRESS') " +
+            "  AND DATEDIFF(MINUTE, CreatedAt, GETDATE()) <= ?";
+        String auditSql =
+            "INSERT INTO dbo.AuditLogs(ActionType, Action, TargetRequestID, ActorUserID, Note) " +
+            "VALUES(?, ?, ?, ?, ?);";
+
+        try (Connection cn = DBConnection.getConnection()) {
+            cn.setAutoCommit(false);
+            try {
+                try (PreparedStatement ps = cn.prepareStatement(sql)) {
+                    ps.setInt(1, r.getLeaveTypeId());
+                    if (r.getReason() == null || r.getReason().isBlank()) {
+                        ps.setNull(2, Types.NVARCHAR);
+                    } else {
+                        ps.setNString(2, r.getReason());
+                    }
+                    ps.setDate(3, r.getFromDate());
+                    ps.setDate(4, r.getToDate());
+                    ps.setInt(5, r.getRequestId());
+                    ps.setInt(6, OWNER_EDIT_WINDOW_MINUTES);
+                    int rows = ps.executeUpdate();
+                    if (rows == 0) {
+                        throw new IllegalStateException("Request can only be edited within one hour while pending.");
+                    }
+                }
+
+                try (PreparedStatement psAudit = cn.prepareStatement(auditSql)) {
+                    psAudit.setString(1, "UPDATE");
+                    psAudit.setString(2, "UPDATE");
+                    psAudit.setInt(3, r.getRequestId());
+                    psAudit.setInt(4, actorUserId);
+                    psAudit.setNull(5, Types.NVARCHAR);
+                    psAudit.executeUpdate();
+                }
+
+                cn.commit();
+            } catch (Exception ex) {
+                try { cn.rollback(); } catch (SQLException ignore) {}
+                if (ex instanceof RuntimeException) {
+                    throw (RuntimeException) ex;
+                }
+                throw new RuntimeException(ex);
+            } finally {
+                try { cn.setAutoCommit(true); } catch (SQLException ignore) {}
+            }
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("updateRequest failed", e);
+        }
+    }
+
+    public boolean isManagerOf(int managerUserId, int targetUserId) {
+        if (managerUserId <= 0 || targetUserId <= 0) return false;
+
+        final String sql =
+            "WITH Subtree AS (\n" +
+            "    SELECT u.UserID\n" +
+            "    FROM dbo.Users u\n" +
+            "    WHERE u.UserID = ?\n" +
+            "    UNION ALL\n" +
+            "    SELECT u2.UserID\n" +
+            "    FROM dbo.Users u2\n" +
+            "    JOIN Subtree st ON u2.CurrentManagerID = st.UserID\n" +
+            ")\n" +
+            "SELECT 1 FROM Subtree WHERE UserID = ? OPTION (MAXRECURSION 100);";
+
+        try (Connection cn = DBConnection.getConnection();
+             PreparedStatement ps = cn.prepareStatement(sql)) {
+
+           
+            ps.setInt(1, managerUserId);
+            ps.setInt(2, targetUserId);
+
+            try (ResultSet rs = ps.executeQuery()) {
+          
+                return rs.next();
+            }
+        
+        } catch (SQLException e) {
+            throw new RuntimeException("isManagerOf failed", e);
+        }
+       
+    }
+
     public void updateRequest(LeaveRequest r, int actorUserId, String note) {
         String sql =
             "UPDATE dbo.LeaveRequests " +
@@ -136,38 +226,7 @@ public class RequestDAO {
         }
     }
 
-    public boolean isManagerOf(int managerUserId, int targetUserId) {
-        if (managerUserId <= 0 || targetUserId <= 0) return false;
-
-        final String sql =
-            "WITH Subtree AS (\n" +
-            "    SELECT u.UserID\n" +
-            "    FROM dbo.Users u\n" +
-            "    WHERE u.UserID = ?\n" +
-            "    UNION ALL\n" +
-            "    SELECT u2.UserID\n" +
-            "    FROM dbo.Users u2\n" +
-            "    JOIN Subtree st ON u2.CurrentManagerID = st.UserID\n" +
-            ")\n" +
-            "SELECT 1 FROM Subtree WHERE UserID = ? OPTION (MAXRECURSION 100);";
-
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
-
-            
-            ps.setInt(1, managerUserId);
-            ps.setInt(2, targetUserId);
-
-            try (ResultSet rs = ps.executeQuery()) {
-            
-                return rs.next();
-            }
-        
-        } catch (SQLException e) {
-            throw new RuntimeException("isManagerOf failed", e);
-        }
-      
-    }
+   
 
     
 
@@ -351,15 +410,7 @@ public void updateStatusByCode(int requestId, String statusCode, int actorUserId
         ps.setInt(2, requestId);
         ps.executeUpdate();
 
-        // Nếu có bảng log riêng, bỏ comment và set tiếp:
-        // try (java.sql.PreparedStatement ps2 = cn.prepareStatement(
-        //     "INSERT INTO dbo.AuditLogs(ActionType, TargetRequestID, ActorUserID, Note) VALUES(?,?,?,?)")) {
-        //     ps2.setString(1, "REVIEW");
-        //     ps2.setInt(2, requestId);
-        //     ps2.setInt(3, actorUserId);
-        //     ps2.setString(4, (note == null || note.isBlank()) ? null : note.trim());
-        //     ps2.executeUpdate();
-        // }
+ 
 
     } catch (Exception ex) {
         throw new RuntimeException("updateStatusByCode failed", ex);
