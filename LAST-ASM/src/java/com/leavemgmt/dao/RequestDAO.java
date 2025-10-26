@@ -154,27 +154,65 @@ public LeaveRequest findById(int id) {
             "    CreatedByUserID, CurrentStatusID, CreatedAt) " +
             "VALUES (?, ?, ?, ?, ?, (SELECT StatusID FROM dbo.RequestStatuses WHERE StatusCode='INPROGRESS'), GETDATE()); " +
             "SELECT SCOPE_IDENTITY();";
+        String auditSql =
+            "INSERT INTO dbo.AuditLogs(ActionType, Action, TargetRequestID, ActorUserID, Note) " +
+            "VALUES(?, ?, ?, ?, ?);";
 
-        try (Connection cn = DBConnection.getConnection();
-             PreparedStatement ps = cn.prepareStatement(sql)) {
 
-            ps.setInt(1, r.getLeaveTypeId());
-            if (r.getReason() == null || r.getReason().isBlank()) {
-                ps.setNull(2, Types.NVARCHAR);
-            } else {
-                ps.setNString(2, r.getReason());
+        try (Connection cn = DBConnection.getConnection()) {
+            cn.setAutoCommit(false);
+            int newId = 0;
+            try {
+                try (PreparedStatement ps = cn.prepareStatement(sql)) {
+
+           
+                    ps.setInt(1, r.getLeaveTypeId());
+                    if (r.getReason() == null || r.getReason().isBlank()) {
+                        ps.setNull(2, Types.NVARCHAR);
+                    } else {
+                        ps.setNString(2, r.getReason());
+                    }
+                    ps.setDate(3, r.getFromDate());
+                    ps.setDate(4, r.getToDate());
+                    ps.setInt(5, r.getCreatedByUserId());
+
+            
+                    try (ResultSet rs = ps.executeQuery()) {
+                        if (rs.next()) {
+                            newId = rs.getInt(1);
+                        }
+                    }
+                }
+
+                if (newId <= 0) {
+                    throw new SQLException("No request id returned");
+                }
+
+                try (PreparedStatement psAudit = cn.prepareStatement(auditSql)) {
+                    psAudit.setString(1, "CREATE");
+                    psAudit.setString(2, "CREATE");
+                    psAudit.setInt(3, newId);
+                    psAudit.setInt(4, r.getCreatedByUserId());
+                    if (r.getReason() == null || r.getReason().isBlank()) {
+                        psAudit.setNull(5, Types.NVARCHAR);
+                    } else {
+                        psAudit.setNString(5, r.getReason());
+                    }
+                    psAudit.executeUpdate();
+                }
+
+                cn.commit();
+            } catch (Exception ex) {
+                try { cn.rollback(); } catch (SQLException ignore) {}
+                throw ex;
+            } finally {
+                try { cn.setAutoCommit(true); } catch (SQLException ignore) {}
             }
-            ps.setDate(3, r.getFromDate());
-            ps.setDate(4, r.getToDate());
-            ps.setInt(5, r.getCreatedByUserId());
-
-            try (ResultSet rs = ps.executeQuery()) {
-                if (rs.next()) return rs.getInt(1);
-            }
+            return newId;
         } catch (Exception e) {
             throw new RuntimeException("createRequest failed", e);
         }
-        return 0;
+ 
     }
     // Lấy danh sách loại nghỉ để render combobox
 public java.util.List<com.leavemgmt.model.LeaveType> listTypes() {
