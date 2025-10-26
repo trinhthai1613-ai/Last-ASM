@@ -31,19 +31,56 @@
 
   java.util.function.Function<String,String> trimOrEmpty = (value) -> {
     if (value == null) return "";
-    String v = value.trim();
-    return v;
+    StringBuilder cleaned = new StringBuilder(value.length());
+    for (int i = 0; i < value.length(); i++) {
+      char ch = value.charAt(i);
+      switch (ch) {
+        case '\u00A0': // non-breaking space
+        case '\u2007': // figure space
+        case '\u202F': // narrow no-break space
+        case '\u200B': // zero-width space
+        case '\u200C': // zero-width non-joiner
+        case '\u200D': // zero-width joiner
+        case '\uFEFF': // zero-width no-break space / BOM
+          cleaned.append(' ');
+          break;
+        default:
+          if (Character.isISOControl(ch)) {
+            // drop other non-printable characters
+            continue;
+          }
+          cleaned.append(Character.isWhitespace(ch) ? ' ' : ch);
+      }
+    }
+    return cleaned.toString().trim();
+  };
+
+  java.util.function.Function<AuditLog,Boolean> hasStatusChange = (a) -> {
+    String oldSt = trimOrEmpty.apply(a.getOldStatus());
+    String newSt = trimOrEmpty.apply(a.getNewStatus());
+    if (oldSt.isEmpty() && newSt.isEmpty()) {
+      return false;
+    }
+    if (oldSt.isEmpty() || newSt.isEmpty()) {
+      return true;
+    }
+    return !oldSt.equalsIgnoreCase(newSt);
   };
 
   // tạo text trạng thái để hiển thị
   java.util.function.Function<AuditLog,String> renderStatus = (a) -> {
-    String oldSt = a.getOldStatus();
-    String newSt = a.getNewStatus();
-    if ((oldSt != null && !oldSt.isBlank()) || (newSt != null && !newSt.isBlank())) {
-      String left  = (oldSt == null ? "" : mapStatus.apply(oldSt));
-      String right = (newSt == null ? "" : mapStatus.apply(newSt));
-      if (!left.isEmpty() && !right.isEmpty()) return   right;
-      return left + right; // 1 trong 2 có thể trống
+    String oldSt = trimOrEmpty.apply(a.getOldStatus());
+    String newSt = trimOrEmpty.apply(a.getNewStatus());
+    if (!oldSt.isEmpty() || !newSt.isEmpty()) {
+      String left  = mapStatus.apply(oldSt);
+      String right = mapStatus.apply(newSt);
+      if (!left.isEmpty() && !right.isEmpty()) {
+        if (left.equalsIgnoreCase(right)) {
+          return right;
+        }
+        return left + " → " + right;
+      }
+      return left.isEmpty() ? right : left; // 1 trong 2 có thể trống
     }
     // fallback: dùng trạng thái hiện tại của request
     return mapStatus.apply(a.getCurrentStatusCode());
@@ -82,13 +119,14 @@
   <%
     if (logs != null) {
       for (AuditLog a : logs) {
-        String actor   = trimOrEmpty.apply(a.getActorName());
-        String action  = trimOrEmpty.apply(a.getActionType());
-        String reqCode = trimOrEmpty.apply(a.getRequestCode());
-        String status  = renderStatus.apply(a).trim();
-        String note    = trimOrEmpty.apply(a.getNote());
+        String actor    = trimOrEmpty.apply(a.getActorName());
+        String action   = trimOrEmpty.apply(a.getActionType());
+        String reqCode  = trimOrEmpty.apply(a.getRequestCode());
+        String note     = trimOrEmpty.apply(a.getNote());
+        boolean statusChange = hasStatusChange.apply(a);
+        String status   = trimOrEmpty.apply(renderStatus.apply(a));
 
-        if (actor.isEmpty() && action.isEmpty() && reqCode.isEmpty() && status.isEmpty() && note.isEmpty()) {
+        if (actor.isEmpty() && action.isEmpty() && reqCode.isEmpty() && note.isEmpty() && !statusChange && status.isEmpty()) {
           continue; // bỏ qua log không có thông tin hiển thị
         }
  %><tr>
