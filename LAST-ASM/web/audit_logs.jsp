@@ -29,6 +29,12 @@
     }
   };
 
+  java.util.function.Function<String,String> trimOrEmpty = (value) -> {
+    if (value == null) return "";
+    String v = value.trim();
+    return v;
+  };
+
   // tạo text trạng thái để hiển thị
   java.util.function.Function<AuditLog,String> renderStatus = (a) -> {
     String oldSt = a.getOldStatus();
@@ -69,19 +75,28 @@
       <th style="width:100px;">Action</th>
       <th style="width:140px;">Request Code</th>
       <th>Status</th>
-   
+
     </tr>
   </thead>
   <tbody>
   <%
     if (logs != null) {
       for (AuditLog a : logs) {
+        String actor   = trimOrEmpty.apply(a.getActorName());
+        String action  = trimOrEmpty.apply(a.getActionType());
+        String reqCode = trimOrEmpty.apply(a.getRequestCode());
+        String status  = renderStatus.apply(a).trim();
+        String note    = trimOrEmpty.apply(a.getNote());
+
+        if (actor.isEmpty() && action.isEmpty() && reqCode.isEmpty() && status.isEmpty() && note.isEmpty()) {
+          continue; // bỏ qua log không có thông tin hiển thị
+        }
  %><tr>
-      <td><%= a.getOccurredAt() %></td>
-      <td><%= a.getActorName() == null ? "" : a.getActorName() %></td>
-      <td><%= a.getActionType() %></td>
-      <td><%= a.getRequestCode() == null ? "" : a.getRequestCode() %></td>
-      <td><%= renderStatus.apply(a) %></td>
+      <td><%= a.getOccurredAt() == null ? "" : a.getOccurredAt() %></td>
+      <td><%= actor %></td>
+      <td><%= action %></td>
+      <td><%= reqCode %></td>
+      <td><%= status %></td>
   </tr><%
       }
     }
