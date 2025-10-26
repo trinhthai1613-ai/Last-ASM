@@ -2,7 +2,7 @@ package com.leavemgmt.dao;
 
 import com.leavemgmt.model.LeaveRequest;
 import com.leavemgmt.util.DBConnection;
-
+import java.util.Locale;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -393,30 +393,122 @@ public java.util.List<com.leavemgmt.model.LeaveType> listTypes() {
 
 // Cập nhật trạng thái bằng STATUS CODE (APPROVED/REJECTED/INPROGRESS)
 public void updateStatusByCode(int requestId, String statusCode, int actorUserId, String note) {
-    String sql =
-            "UPDATE r SET r.CurrentStatusID = s.StatusID " +
-            "FROM dbo.LeaveRequests r " +
-            "JOIN dbo.RequestStatuses s ON s.StatusCode = ? " +
-            "WHERE r.RequestID = ?; " +
-            // nếu bạn có bảng log, thêm insert ở dưới (tùy DB của bạn):
-            // "INSERT INTO dbo.AuditLogs(ActionType, TargetRequestID, ActorUserID, Note) " +
-            // "VALUES('REVIEW', ?, ?, ?);"
-            "";
 
-    try (java.sql.Connection cn = DBConnection.getConnection();
-         java.sql.PreparedStatement ps = cn.prepareStatement(sql)) {
+    if (requestId <= 0) {
+        throw new IllegalArgumentException("requestId must be positive");
+    }
+    String normalizedCode = statusCode == null ? null : statusCode.trim().toUpperCase(Locale.ROOT);
+    if (normalizedCode == null || normalizedCode.isEmpty()) {
+        throw new IllegalArgumentException("statusCode is required");
+    }
 
-        ps.setString(1, statusCode);
-        ps.setInt(2, requestId);
-        ps.executeUpdate();
 
- 
+    final String currentSql =
+        "SELECT rs.StatusCode " +
+        "FROM dbo.LeaveRequests r " +
+        "JOIN dbo.RequestStatuses rs ON rs.StatusID = r.CurrentStatusID " +
+        "WHERE r.RequestID = ?";
 
+    final String targetSql =
+        "SELECT StatusID, StatusCode " +
+        "FROM dbo.RequestStatuses " +
+        "WHERE StatusCode = ?";
+
+    final String updateSql =
+        "UPDATE dbo.LeaveRequests " +
+        "SET CurrentStatusID = ?, UpdatedAt = SYSDATETIME() " +
+        "WHERE RequestID = ?";
+
+    final String auditSql =
+        "INSERT INTO dbo.AuditLogs(ActionType, Action, TargetRequestID, ActorUserID, Note, OldStatus, NewStatus) " +
+        "VALUES(?, ?, ?, ?, ?, ?, ?);";
+
+    try (Connection cn = DBConnection.getConnection()) {
+        cn.setAutoCommit(false);
+        try {
+            String previousStatus = null;
+            try (PreparedStatement ps = cn.prepareStatement(currentSql)) {
+                ps.setInt(1, requestId);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (rs.next()) {
+                        previousStatus = rs.getString("StatusCode");
+                    } else {
+                        throw new IllegalArgumentException("Request not found: " + requestId);
+                    }
+                }
+            }
+
+            int newStatusId;
+            String dbStatusCode;
+            try (PreparedStatement ps = cn.prepareStatement(targetSql)) {
+                ps.setString(1, normalizedCode);
+                try (ResultSet rs = ps.executeQuery()) {
+                    if (!rs.next()) {
+                        throw new IllegalArgumentException("Unknown status code: " + normalizedCode);
+                    }
+                    newStatusId = rs.getInt("StatusID");
+                    dbStatusCode = rs.getString("StatusCode");
+                }
+            }
+
+            try (PreparedStatement ps = cn.prepareStatement(updateSql)) {
+                ps.setInt(1, newStatusId);
+                ps.setInt(2, requestId);
+                int affected = ps.executeUpdate();
+                if (affected == 0) {
+                    throw new SQLException("No request updated");
+                }
+            }
+
+
+            String action;
+            if ("APPROVED".equals(dbStatusCode)) {
+                action = "APPROVE";
+            } else if ("REJECTED".equals(dbStatusCode)) {
+                action = "REJECT";
+            } else {
+                action = dbStatusCode;
+            }
+
+            try (PreparedStatement ps = cn.prepareStatement(auditSql)) {
+                ps.setString(1, action);
+                ps.setString(2, action);
+                ps.setInt(3, requestId);
+                if (actorUserId > 0) {
+                    ps.setInt(4, actorUserId);
+                } else {
+                    ps.setNull(4, Types.INTEGER);
+                }
+                if (note == null || note.isBlank()) {
+                    ps.setNull(5, Types.NVARCHAR);
+                } else {
+                    ps.setNString(5, note.trim());
+                }
+                if (previousStatus == null || previousStatus.isBlank()) {
+                    ps.setNull(6, Types.NVARCHAR);
+                } else {
+                    ps.setNString(6, previousStatus);
+                }
+                ps.setNString(7, dbStatusCode);
+                ps.executeUpdate();
+            }
+
+            cn.commit();
+        } catch (Exception ex) {
+            try { cn.rollback(); } catch (SQLException ignore) {}
+            if (ex instanceof RuntimeException) {
+                throw (RuntimeException) ex;
+            }
+            throw new RuntimeException(ex);
+        } finally {
+            try { cn.setAutoCommit(true); } catch (SQLException ignore) {}
+        }
+    } catch (RuntimeException e) {
+        throw e;
     } catch (Exception ex) {
         throw new RuntimeException("updateStatusByCode failed", ex);
     }
 }
-
     // ---------------------------------------------------------
     // Helper: map 1 dòng ResultSet -> LeaveRequest
     // ---------------------------------------------------------
