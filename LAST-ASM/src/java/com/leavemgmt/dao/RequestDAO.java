@@ -479,11 +479,7 @@ public void updateStatusByCode(int requestId, String statusCode, int actorUserId
                 } else {
                     ps.setNull(4, Types.INTEGER);
                 }
-                if (note == null || note.isBlank()) {
-                    ps.setNull(5, Types.NVARCHAR);
-                } else {
-                    ps.setNString(5, note.trim());
-                }
+                 ps.setNull(5, Types.NVARCHAR);
                 if (previousStatus == null || previousStatus.isBlank()) {
                     ps.setNull(6, Types.NVARCHAR);
                 } else {

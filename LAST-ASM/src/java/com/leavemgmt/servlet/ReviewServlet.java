@@ -62,7 +62,7 @@ public class ReviewServlet extends HttpServlet {
             return;
         }
         String decision = req.getParameter("decision"); // approve | reject
-        String note = req.getParameter("note"); // có thể null
+
         if (!canReview(cur, existing)) {
             resp.sendError(HttpServletResponse.SC_FORBIDDEN);
             return;
@@ -80,7 +80,7 @@ public class ReviewServlet extends HttpServlet {
         }
 
         // Cập nhật trạng thái bằng CODE (và ghi log nếu bạn đã thêm)
-        requestDAO.updateStatusByCode(id, code, cur.getUserId(), note);
+      requestDAO.updateStatusByCode(id, code, cur.getUserId(), null);
 
         // flash + quay lại danh sách team
        String msg = "Request #" + id + " status updated to " + code + ".";

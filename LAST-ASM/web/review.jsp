@@ -34,9 +34,7 @@
 <form method="post" action="<%=request.getContextPath()%>/app/request/review">
   <input type="hidden" name="id" value="<%= r.getRequestId() %>"/>
 
-  <p>Note:</p>
-  <textarea name="note" style="width:600px;height:90px"></textarea>
-  <br/><br/>
+
 
   <button type="submit" name="decision" value="approve">Approve</button>
   <button type="submit" name="decision" value="reject">Reject</button>
