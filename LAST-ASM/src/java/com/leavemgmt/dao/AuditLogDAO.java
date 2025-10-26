@@ -10,7 +10,9 @@ import java.util.List;
 public class AuditLogDAO {
 public List<AuditLog> listAll() {
     String sql =
-        "SELECT a.LogID, a.OccurredAt, a.Action AS ActionType, a.Note, " +
+        "SELECT a.LogID, a.OccurredAt, " +
+        "       COALESCE(NULLIF(a.ActionType, ''), a.Action) AS ActionType, " +
+        "       a.Note, " +
         "       u.FullName AS ActorName, " +
         "       r.RequestID, r.RequestCode, " +
         "       s.StatusCode AS CurrentStatusCode, " +        // <-- lấy code qua JOIN
