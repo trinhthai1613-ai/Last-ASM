@@ -1,29 +1,32 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 160" shape-rendering="crispEdges">
-  <defs>
-    <linearGradient id="flame" x1="0" x2="0" y1="0" y2="1">
-      <stop offset="0%" stop-color="#fff176"/>
-      <stop offset="45%" stop-color="#ffb74d"/>
-      <stop offset="100%" stop-color="#ff7043"/>
-    </linearGradient>
-    <linearGradient id="rocketBody" x1="0" x2="1" y1="0" y2="0">
-      <stop offset="0%" stop-color="#f5f5ff"/>
-      <stop offset="100%" stop-color="#dbe2ff"/>
-    </linearGradient>
-    <linearGradient id="windowGlow" x1="0" x2="1" y1="0" y2="1">
-      <stop offset="0%" stop-color="#7d5cff"/>
-      <stop offset="100%" stop-color="#01cdfe"/>
-    </linearGradient>
-  </defs>
-  <rect width="100%" height="100%" fill="none"/>
-  <g transform="translate(40 20)">
-    <g>
-      <path d="M56 96 L80 120 L104 96" fill="#7d5cff"/>
-      <path d="M56 32 L32 56 L56 80" fill="#7d5cff"/>
-      <path d="M104 32 L128 56 L104 80" fill="#7d5cff"/>
-      <path d="M80 12 C68 24 60 44 60 64 C60 84 68 104 80 116 C92 104 100 84 100 64 C100 44 92 24 80 12 Z" fill="url(#rocketBody)"/>
-      <ellipse cx="80" cy="64" rx="18" ry="18" fill="url(#windowGlow)" stroke="#201047" stroke-width="6"/>
-      <path d="M76 120 L80 148 L84 120" fill="url(#flame)"/>
-      <path d="M72 124 L80 160 L88 124" fill="url(#flame)" opacity="0.8"/>
-    </g>
-  </g>
+<!-- rocket-dayoff.svg — pixel rocket, nền trong suốt -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     width="16" height="16" viewBox="0 0 16 16"
+     shape-rendering="crispEdges">
+  <!-- Vẽ bằng các pixel hình chữ nhật để giữ style pixel -->
+  <!-- Màu trong suốt bỏ qua -->
+  <!-- Outline tối -->
+  <rect x="8" y="1" width="1" height="1" fill="#1b2330"/>
+  <rect x="7" y="2" width="3" height="1" fill="#1b2330"/>
+  <rect x="6" y="3" width="1" height="1" fill="#1b2330"/>
+  <rect x="10" y="3" width="1" height="1" fill="#1b2330"/>
+  <!-- Thân sáng -->
+  <rect x="7" y="3" width="3" height="2" fill="#e6eef5"/>
+  <rect x="6" y="5" width="5" height="1" fill="#e6eef5"/>
+  <rect x="6" y="6" width="5" height="3" fill="#e6eef5"/>
+  <rect x="5" y="7" width="7" height="3" fill="#e6eef5"/>
+  <!-- Vòng cửa sổ -->
+  <rect x="7" y="6" width="2" height="1" fill="#006064"/>
+  <rect x="7" y="7" width="2" height="1" fill="#4dd0e1"/>
+  <!-- Bóng thân -->
+  <rect x="8" y="11" width="4" height="1" fill="#c7d1d8"/>
+  <!-- Vây đỏ (trái/phải) -->
+  <rect x="3" y="8" width="2" height="1" fill="#7d1717"/>
+  <rect x="3" y="9" width="2" height="2" fill="#ef5350"/>
+  <rect x="11" y="8" width="2" height="1" fill="#7d1717"/>
+  <rect x="11" y="9" width="2" height="2" fill="#ef5350"/>
+  <!-- Đế động cơ tối -->
+  <rect x="5" y="13" width="6" height="1" fill="#1b2330"/>
+  <!-- Lửa -->
+  <rect x="6" y="14" width="4" height="1" fill="#ffa000"/>
+  <rect x="7" y="15" width="2" height="1" fill="#e65100"/>
 </svg>

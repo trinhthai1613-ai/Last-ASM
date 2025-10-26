@@ -78,6 +78,9 @@ body::before {
   border-radius: 0;
   pointer-events: none;
   z-index: 5;
+  transform: scale(0.4);
+transform-origin: top left;
+
 }
 
 @keyframes twinkle {
