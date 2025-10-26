@@ -112,7 +112,37 @@
   const selType   = document.getElementById('typeId');
   const grpReason = document.getElementById('reasonGroup');
   const txtReason = document.getElementById('reason');
+const inpFrom   = document.getElementById('from');
+  const inpTo     = document.getElementById('to');
 
+  (function enforceMinDates(){
+    const today = new Date();
+    const y = today.getFullYear();
+    const m = String(today.getMonth()+1).padStart(2,'0');
+    const d = String(today.getDate()).padStart(2,'0');
+    const todayStr = `${y}-${m}-${d}`;
+
+    function syncTo(){
+      const base = (inpFrom.value && inpFrom.value > todayStr) ? inpFrom.value : todayStr;
+      inpTo.min = base;
+      if (inpTo.value && inpTo.value < base) {
+        inpTo.value = base;
+      }
+    }
+
+    if (!inpFrom.value || inpFrom.value < todayStr) {
+      inpFrom.value = todayStr;
+    }
+    inpFrom.min = todayStr;
+    syncTo();
+
+    inpFrom.addEventListener('change', function(){
+      if (inpFrom.value && inpFrom.value < todayStr) {
+        inpFrom.value = todayStr;
+      }
+      syncTo();
+    });
+  })();
   function toggleReason(){
     const opt = selType.options[selType.selectedIndex];
     if (!opt){

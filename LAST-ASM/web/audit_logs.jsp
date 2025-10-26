@@ -36,7 +36,7 @@
     if ((oldSt != null && !oldSt.isBlank()) || (newSt != null && !newSt.isBlank())) {
       String left  = (oldSt == null ? "" : mapStatus.apply(oldSt));
       String right = (newSt == null ? "" : mapStatus.apply(newSt));
-      if (!left.isEmpty() && !right.isEmpty()) return left + " → " + right;
+      if (!left.isEmpty() && !right.isEmpty()) return   right;
       return left + right; // 1 trong 2 có thể trống
     }
     // fallback: dùng trạng thái hiện tại của request
@@ -76,16 +76,13 @@
   <%
     if (logs != null) {
       for (AuditLog a : logs) {
-  %>
-    <tr>
+ %><tr>
       <td><%= a.getOccurredAt() %></td>
       <td><%= a.getActorName() == null ? "" : a.getActorName() %></td>
       <td><%= a.getActionType() %></td>
       <td><%= a.getRequestCode() == null ? "" : a.getRequestCode() %></td>
       <td><%= renderStatus.apply(a) %></td>
-
-    </tr>
-  <%
+  </tr><%
       }
     }
   %>

@@ -131,6 +131,19 @@
     inpFrom.min = min;
     inpTo.min   = min;
   })();
+  function syncToMin(){
+    const base = inpFrom.value || inpFrom.min;
+    if (base) {
+      inpTo.min = base;
+      if (inpTo.value && inpTo.value < base) {
+        inpTo.value = base;
+      }
+    }
+  }
+
+  inpFrom.addEventListener('change', syncToMin);
+  syncToMin();
+
 
   // Khi chọn “Khác” -> hiện Reason (dựa theo text hoặc data-code="OTHER")
   function toggleReason(){
