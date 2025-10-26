@@ -55,35 +55,22 @@
     return cleaned.toString().trim();
   };
 
-  java.util.function.Function<AuditLog,Boolean> hasStatusChange = (a) -> {
-    String oldSt = trimOrEmpty.apply(a.getOldStatus());
-    String newSt = trimOrEmpty.apply(a.getNewStatus());
-    if (oldSt.isEmpty() && newSt.isEmpty()) {
-      return false;
-    }
-    if (oldSt.isEmpty() || newSt.isEmpty()) {
-      return true;
-    }
-    return !oldSt.equalsIgnoreCase(newSt);
-  };
-
   // tạo text trạng thái để hiển thị
   java.util.function.Function<AuditLog,String> renderStatus = (a) -> {
     String oldSt = trimOrEmpty.apply(a.getOldStatus());
     String newSt = trimOrEmpty.apply(a.getNewStatus());
-    if (!oldSt.isEmpty() || !newSt.isEmpty()) {
-      String left  = mapStatus.apply(oldSt);
-      String right = mapStatus.apply(newSt);
-      if (!left.isEmpty() && !right.isEmpty()) {
-        if (left.equalsIgnoreCase(right)) {
-          return right;
-        }
-        return left + " → " + right;
-      }
-      return left.isEmpty() ? right : left; // 1 trong 2 có thể trống
+    if (oldSt.isEmpty() && newSt.isEmpty()) {
+      return "";
     }
-    // fallback: dùng trạng thái hiện tại của request
-    return mapStatus.apply(a.getCurrentStatusCode());
+    String left  = mapStatus.apply(oldSt);
+    String right = mapStatus.apply(newSt);
+    if (!left.isEmpty() && !right.isEmpty()) {
+      if (left.equalsIgnoreCase(right)) {
+        return right;
+      }
+      return left + " → " + right;
+    }
+    return left.isEmpty() ? right : left; // 1 trong 2 có thể trống
   };
 %>
 
@@ -123,10 +110,12 @@
         String action   = trimOrEmpty.apply(a.getActionType());
         String reqCode  = trimOrEmpty.apply(a.getRequestCode());
         String note     = trimOrEmpty.apply(a.getNote());
-        boolean statusChange = hasStatusChange.apply(a);
         String status   = trimOrEmpty.apply(renderStatus.apply(a));
+        if (status.isEmpty() && (!actor.isEmpty() || !action.isEmpty() || !reqCode.isEmpty() || !note.isEmpty())) {
+          status = trimOrEmpty.apply(mapStatus.apply(a.getCurrentStatusCode()));
+        }
 
-        if (actor.isEmpty() && action.isEmpty() && reqCode.isEmpty() && note.isEmpty() && !statusChange && status.isEmpty()) {
+        if (actor.isEmpty() && action.isEmpty() && reqCode.isEmpty() && note.isEmpty() && status.isEmpty()) {
           continue; // bỏ qua log không có thông tin hiển thị
         }
  %><tr>

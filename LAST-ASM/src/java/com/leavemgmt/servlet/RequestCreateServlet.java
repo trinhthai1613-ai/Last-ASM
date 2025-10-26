@@ -55,6 +55,13 @@ public class RequestCreateServlet extends HttpServlet {
             String reason = req.getParameter("reason"); // có thể null khi KHÁC không được chọn
             LocalDate fromLd = LocalDate.parse(req.getParameter("from"));
             LocalDate toLd   = LocalDate.parse(req.getParameter("to"));
+            LocalDate today = LocalDate.now();
+            if (fromLd.isBefore(today)) {
+                throw new IllegalArgumentException("Start date must be today or later");
+            }
+            if (toLd.isBefore(fromLd)) {
+                throw new IllegalArgumentException("End date must be on or after the start date");
+            }
 
             LeaveRequest r = new LeaveRequest();
             r.setLeaveTypeId(typeId);

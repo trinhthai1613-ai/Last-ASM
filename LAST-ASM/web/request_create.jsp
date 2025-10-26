@@ -40,6 +40,18 @@
   if (types == null) types = new ArrayList<>();
 
   String createdId = request.getParameter("createdId"); // để bật modal
+  String errorMsg = (String) request.getAttribute("error");
+%>
+
+<% if (errorMsg != null && !errorMsg.isBlank()) { %>
+  <div style="background:#fee;border:1px solid #f88;padding:8px 12px;margin-bottom:12px;color:#a00;">
+    <strong>Error:</strong> <%= errorMsg %>
+  </div>
+<% } %>
+
+<%
+  java.time.LocalDate today = java.time.LocalDate.now();
+  String todayStr = today.toString();
 %>
 
 <form id="frmCreate" method="post" action="<%=request.getContextPath()%>/app/request/create">
@@ -71,9 +83,9 @@
 
   <div>
     <label>From:</label>
-    <input type="date" id="from" name="from" required>
+     <input type="date" id="from" name="from" required min="<%= todayStr %>">
     <label style="min-width:auto;margin-left:10px">To:</label>
-    <input type="date" id="to" name="to" required>
+    <input type="date" id="to" name="to" required min="<%= todayStr %>">
   </div>
 
   <div style="margin-top:10px">
@@ -129,7 +141,9 @@
     const d = String(today.getDate()).padStart(2,'0');
     const min = `${y}-${m}-${d}`;
     inpFrom.min = min;
+    inpFrom.setAttribute('min', min);
     inpTo.min   = min;
+       inpTo.setAttribute('min', min);
   })();
   function syncToMin(){
     const base = inpFrom.value || inpFrom.min;
