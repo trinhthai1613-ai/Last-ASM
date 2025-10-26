@@ -9,140 +9,135 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Requests</title>
-  <style>
-    table{ border-collapse: collapse; }
-    th,td{ border:1px solid #999; padding:6px 10px; }
-    th{ background:#f5f5f5; }
-  </style>
+  <title>Danh sách yêu cầu nghỉ phép</title>
+  <link rel="stylesheet" href="<%=request.getContextPath()%>/style.css"/>
 </head>
-<body style="font-family:Arial, sans-serif">
-
+<body>
 <%
   User cur = (User) session.getAttribute("LOGIN_USER");
   if (cur == null) { response.sendRedirect(request.getContextPath()+"/login"); return; }
 
-  String scope = (String) request.getAttribute("scope"); // "mine" | "team"
+  String scope = (String) request.getAttribute("scope");
   if (scope == null) scope = "mine";
 
   @SuppressWarnings("unchecked")
   List<LeaveRequest> list = (List<LeaveRequest>) request.getAttribute("list");
   if (list == null) list = java.util.Collections.emptyList();
 
-  
   boolean teamScope = "team".equalsIgnoreCase(scope);
-  String title = teamScope ? "Requests (Team/Subtree)" : "Requests (Mine)";
+  String title = teamScope ? "Yêu cầu của đội / cây" : "Yêu cầu của tôi";
   boolean showActionsColumn = teamScope;
 %>
 
-<h2><%= title %></h2>
-<p>
-  <a href="<%=request.getContextPath()%>/app/home">Home</a>
-</p>
+<main class="container">
+  <section class="pixel-card">
+    <h1 class="pixel-heading"><%= title %></h1>
 
-<%
-  String flash = (String) session.getAttribute("FLASH_MSG");
-  if (flash != null) {
-%>
-  <p style="color:green"><%= flash %></p>
-<%
-    session.removeAttribute("FLASH_MSG");
-  }
-%>
+    <nav class="pixel-nav">
+      <a href="<%=request.getContextPath()%>/app/home">Bảng điều khiển</a>
+      <a href="<%=request.getContextPath()%>/app/request/create">Tạo yêu cầu mới</a>
+    </nav>
 
-<table>
-  <thead>
-    <tr>
-      <th>Code</th>
-      <th>Type</th>
-      <th>Reason</th>
-      <th>From</th>
-      <th>To</th>
-      <th>Created By</th>
-      <th>Status</th>
-      <th>Days (biz)</th>
+    <%
+      String flash = (String) session.getAttribute("FLASH_MSG");
+      if (flash != null && !flash.isEmpty()) {
+    %>
+      <div class="pixel-alert success"><%= flash %></div>
+    <%
+        session.removeAttribute("FLASH_MSG");
+      }
+    %>
 
-      <% if (showActionsColumn) { %>
-        <th>Actions</th>
-      <% } %>
-    </tr>
-  </thead>
-  <tbody>
-  <% for (LeaveRequest r : list) {
-       String code = (r.getStatusCode()==null? "" : r.getStatusCode().trim().toUpperCase());
-       String statusVi;
-       switch (code) {
-         case "INPROGRESS": statusVi = "Đang xử lý"; break;
-         case "APPROVED"  : statusVi = "Đã duyệt";   break;
-         case "REJECTED"  : statusVi = "Từ chối";    break;
-         default          : statusVi = code;
-       }
-       boolean isPending = "INPROGRESS".equalsIgnoreCase(code);
-       boolean isOwn = r.getCreatedByUserId() == cur.getUserId();
-       java.sql.Timestamp createdAt = r.getCreatedAt();
-       boolean withinOwnerWindow = false;
-       if (createdAt != null) {
-         Duration elapsed = Duration.between(createdAt.toInstant(), Instant.now());
-         if (elapsed.isNegative()) elapsed = Duration.ZERO;
-         withinOwnerWindow = elapsed.compareTo(Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES)) <= 0;
-       }
-       boolean showEdit = isOwn && isPending && withinOwnerWindow;
-       boolean canReview = teamScope && (cur.isTopLevel() || !isOwn);
-       boolean reviewableStatus = "INPROGRESS".equalsIgnoreCase(code) || "APPROVED".equalsIgnoreCase(code) || "REJECTED".equalsIgnoreCase(code);
-       boolean showReview = canReview && reviewableStatus;
-  %>
-    <tr>
-   
-      <td>
-        <%
-          String displayCode = r.getRequestCode()==null ? ("LR"+r.getRequestId()) : r.getRequestCode();
-          if (showEdit && !showActionsColumn) {
+    <div style="overflow-x: auto;">
+      <table class="pixel-table">
+        <thead>
+          <tr>
+            <th>Mã</th>
+            <th>Loại</th>
+            <th>Lý do</th>
+            <th>Từ ngày</th>
+            <th>Đến ngày</th>
+            <th>Người tạo</th>
+            <th>Trạng thái</th>
+            <th>Số ngày</th>
+            <% if (showActionsColumn) { %>
+              <th>Thao tác</th>
+            <% } %>
+          </tr>
+        </thead>
+        <tbody>
+        <% if (list.isEmpty()) { %>
+          <tr>
+            <td colspan="<%= showActionsColumn ? 9 : 8 %>" style="text-align:center; padding: 2rem; color: var(--text-muted);">
+              Chưa có yêu cầu nào.
+            </td>
+          </tr>
+        <% } %>
+        <% for (LeaveRequest r : list) {
+             String code = (r.getStatusCode()==null? "" : r.getStatusCode().trim().toUpperCase());
+             String statusVi;
+             String statusClass = "pending";
+             switch (code) {
+               case "INPROGRESS": statusVi = "Đang xử lý"; statusClass = "pending"; break;
+               case "APPROVED"  : statusVi = "Đã duyệt";   statusClass = "approved"; break;
+               case "REJECTED"  : statusVi = "Từ chối";    statusClass = "rejected"; break;
+               default          : statusVi = code;           statusClass = "pending";
+             }
+             boolean isPending = "INPROGRESS".equalsIgnoreCase(code);
+             boolean isOwn = r.getCreatedByUserId() == cur.getUserId();
+             java.sql.Timestamp createdAt = r.getCreatedAt();
+             boolean withinOwnerWindow = false;
+             if (createdAt != null) {
+               Duration elapsed = Duration.between(createdAt.toInstant(), Instant.now());
+               if (elapsed.isNegative()) elapsed = Duration.ZERO;
+               withinOwnerWindow = elapsed.compareTo(Duration.ofMinutes(RequestDAO.OWNER_EDIT_WINDOW_MINUTES)) <= 0;
+             }
+             boolean showEdit = isOwn && isPending && withinOwnerWindow;
+             boolean canReview = teamScope && (cur.isTopLevel() || !isOwn);
+             boolean reviewableStatus = "INPROGRESS".equalsIgnoreCase(code) || "APPROVED".equalsIgnoreCase(code) || "REJECTED".equalsIgnoreCase(code);
+             boolean showReview = canReview && reviewableStatus;
+             String displayCode = r.getRequestCode()==null ? ("LR"+r.getRequestId()) : r.getRequestCode();
+             String scopeParam = teamScope ? "team" : "mine";
         %>
-            <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=mine"><%= displayCode %></a>
-        <%
-          } else {
-            out.print(displayCode);
-          }
-        %>
-      </td>
-      <td><%= r.getTypeName()==null ? r.getLeaveTypeId() : r.getTypeName() %></td>
-      <td><%= r.getReason()==null ? "" : r.getReason() %></td>
-      <td><%= r.getFromDate() %></td>
-      <td><%= r.getToDate() %></td>
-      <td><%= r.getCreatedByName()==null ? r.getCreatedByUserId() : r.getCreatedByName() %></td>
-      <td><%= statusVi %></td>
-      <td><%= r.getBizDays()==null ? "" : r.getBizDays() %></td>
-
- 
-      <% if (showActionsColumn) { %>
-        <td>
-
-          <%
-            String scopeParam = teamScope ? "team" : "mine";
-            boolean hasAction = false;
-            if (showEdit) {
-          %>
-              <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=<%=scopeParam%>">Edit</a>
-          <%
-                hasAction = true;
-            }
-            if (showReview) {
-              if (hasAction) { out.print(" | "); }
-          %>
-              <a href="<%=request.getContextPath()%>/app/request/review?id=<%=r.getRequestId()%>">Review</a>
-          <%
-              hasAction = true;
-            }
-            if (!hasAction) {
-              out.print("-");
-            }
-          %>
-        </td>
-      <% } %>
-    </tr>
-  <% } %>
-  </tbody>
-</table>
-
+          <tr>
+            <td>
+              <% if (showEdit && !showActionsColumn) { %>
+                <a class="pixel-link" href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=mine"><%= displayCode %></a>
+              <% } else { %>
+                <%= displayCode %>
+              <% } %>
+            </td>
+            <td><%= r.getTypeName()==null ? r.getLeaveTypeId() : r.getTypeName() %></td>
+            <td><%= r.getReason()==null ? "" : r.getReason() %></td>
+            <td><%= r.getFromDate() %></td>
+            <td><%= r.getToDate() %></td>
+            <td><%= r.getCreatedByName()==null ? r.getCreatedByUserId() : r.getCreatedByName() %></td>
+            <td><span class="pixel-status <%= statusClass %>"><%= statusVi %></span></td>
+            <td><%= r.getBizDays()==null ? "" : r.getBizDays() %></td>
+            <% if (showActionsColumn) { %>
+              <td>
+                <div class="pixel-actions">
+                  <% boolean hasAction = false; %>
+                  <% if (showEdit) { hasAction = true; %>
+                    <a href="<%=request.getContextPath()%>/app/request/edit?id=<%=r.getRequestId()%>&scope=<%=scopeParam%>">Chỉnh sửa</a>
+                  <% } %>
+                  <% if (showReview) { %>
+                    <% if (hasAction) { %><span>|</span><% } %>
+                    <% hasAction = true; %>
+                    <a href="<%=request.getContextPath()%>/app/request/review?id=<%=r.getRequestId()%>">Xét duyệt</a>
+                  <% } %>
+                  <% if (!hasAction) { %>
+                    <span style="color: var(--text-muted);">-</span>
+                  <% } %>
+                </div>
+              </td>
+            <% } %>
+          </tr>
+        <% } %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
 </body>
 </html>

@@ -1,4 +1,5 @@
 /* Cosmic Pixel Theme Stylesheet */
+@import url("https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap");
 :root {
   --bg-gradient-start: #05010a;
   --bg-gradient-end: #11062c;
@@ -79,6 +80,14 @@ main,
   width: min(960px, 90%);
   margin: 0 auto;
   padding: 4rem 0;
+}
+
+.pixel-layout {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  padding: 4rem 1.5rem;
 }
 
 .pixel-card {
@@ -184,6 +193,18 @@ li {
   transition: transform 0.1s ease-out, box-shadow 0.1s ease-out;
 }
 
+.pixel-button.secondary {
+  background: transparent;
+  color: var(--accent-tertiary);
+  border-color: rgba(125, 92, 255, 0.4);
+}
+
+.pixel-button.secondary:hover,
+.pixel-button.secondary:focus {
+  color: var(--accent-secondary);
+  box-shadow: 0 0 calc(var(--pixel-size) * 4) var(--accent-tertiary);
+}
+
 .pixel-button:hover,
 .pixel-button:focus {
   transform: translateY(-4px);
@@ -208,6 +229,99 @@ li {
   margin-bottom: 1.5rem;
 }
 
+.pixel-form {
+  display: grid;
+  gap: 1.5rem;
+}
+
+.pixel-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.pixel-form-inline {
+  display: grid;
+  gap: 1.5rem;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+
+.pixel-form-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.pixel-form-actions .pixel-button {
+  margin-top: 0;
+}
+
+.pixel-form label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  color: var(--accent-tertiary);
+  margin-bottom: 0.5rem;
+}
+
+.pixel-form .pixel-error {
+  color: var(--accent-secondary);
+  font-size: 0.7rem;
+  margin-top: -1rem;
+}
+
+.hidden {
+  display: none !important;
+}
+
+.pixel-alert {
+  padding: 1rem 1.5rem;
+  border: var(--pixel-size) solid rgba(125, 92, 255, 0.35);
+  background: rgba(5, 1, 20, 0.9);
+  box-shadow: 0 0 calc(var(--pixel-size) * 3) rgba(1, 205, 254, 0.25);
+  font-size: 0.75rem;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.pixel-alert.success {
+  border-color: rgba(1, 205, 254, 0.6);
+  color: var(--accent-tertiary);
+}
+
+.pixel-alert.error {
+  border-color: rgba(255, 113, 206, 0.6);
+  color: var(--accent-secondary);
+}
+
+.pixel-alert.info {
+  border-color: rgba(125, 92, 255, 0.6);
+  color: var(--text-primary);
+}
+
+.pixel-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(4px);
+  z-index: 9998;
+}
+
+.pixel-modal {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+}
+
+.pixel-modal > .pixel-card {
+  max-width: 420px;
+  width: min(420px, 90%);
+}
+
 .pixel-input:focus {
   outline: none;
   border-color: var(--accent-tertiary);
@@ -221,6 +335,16 @@ li {
   background: rgba(8, 0, 20, 0.8);
   border: var(--pixel-size) solid rgba(125, 92, 255, 0.3);
   box-shadow: 0 0 calc(var(--pixel-size) * 4) rgba(1, 205, 254, 0.15);
+}
+
+.pixel-table.agenda {
+  text-align: center;
+}
+
+.pixel-table.agenda th.name,
+.pixel-table.agenda td.name {
+  text-align: left;
+  min-width: 140px;
 }
 
 .pixel-table th,
@@ -245,6 +369,77 @@ li {
   background: rgba(125, 92, 255, 0.15);
 }
 
+.pixel-table.agenda td {
+  padding: 0.5rem;
+}
+
+.agenda-cell {
+  min-height: 3rem;
+  position: relative;
+}
+
+.agenda-cell::after {
+  content: "";
+  position: absolute;
+  inset: 0.35rem;
+  border: var(--pixel-size) solid transparent;
+  pointer-events: none;
+}
+
+.agenda-cell.work {
+  background: rgba(125, 92, 255, 0.08);
+}
+
+.agenda-cell.leave {
+  background: rgba(255, 113, 206, 0.18);
+  box-shadow: inset 0 0 calc(var(--pixel-size) * 4) rgba(255, 113, 206, 0.35);
+}
+
+.agenda-cell.holiday {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+}
+
+.agenda-head.weekend {
+  color: var(--accent-secondary);
+}
+
+.pixel-toolbar {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.pixel-toolbar form {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+
+.pixel-toolbar .pixel-form-inline {
+  margin: 0;
+}
+
+.pixel-pager {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.pixel-pager a,
+.pixel-pager span {
+  color: var(--accent-secondary);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.7rem;
+}
+
+.pixel-pager span.disabled {
+  color: var(--text-muted);
+}
+
 .pixel-status {
   display: inline-flex;
   align-items: center;
@@ -261,6 +456,18 @@ li {
   content: "✦";
   color: var(--accent-tertiary);
   text-shadow: 0 0 6px var(--accent-tertiary);
+}
+
+.pixel-status.pending {
+  color: var(--accent-secondary);
+}
+
+.pixel-status.approved {
+  color: var(--accent-tertiary);
+}
+
+.pixel-status.rejected {
+  color: #ff5f5f;
 }
 
 .pixel-nav {
@@ -285,6 +492,39 @@ li {
 .pixel-nav a:hover,
 .pixel-nav a:focus {
   border-color: var(--accent-secondary);
+  color: var(--accent-tertiary);
+  text-shadow: 0 0 12px var(--accent-secondary);
+}
+
+.pixel-link {
+  color: var(--accent-tertiary);
+  text-decoration: none;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  font-size: 0.7rem;
+}
+
+.pixel-link:hover,
+.pixel-link:focus {
+  color: var(--accent-secondary);
+  text-shadow: 0 0 12px var(--accent-secondary);
+}
+
+.pixel-table .pixel-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.pixel-table .pixel-actions a {
+  color: var(--accent-secondary);
+  text-decoration: none;
+  font-size: 0.7rem;
+  letter-spacing: 1px;
+}
+
+.pixel-table .pixel-actions a:hover,
+.pixel-table .pixel-actions a:focus {
   color: var(--accent-tertiary);
   text-shadow: 0 0 12px var(--accent-secondary);
 }

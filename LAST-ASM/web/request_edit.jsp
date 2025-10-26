@@ -4,26 +4,20 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Edit Leave Request</title>
-  <style>
-    body{font-family:Arial, sans-serif}
-    label{display:inline-block;min-width:110px;margin:8px 0}
-    input, select, textarea{padding:6px}
-    textarea{width:420px;height:90px}
-    .hidden{display:none}
-    .error{color:#c62828;margin-bottom:12px}
-    .info{margin-bottom:12px;color:#1565c0}
-    .btn{padding:6px 12px;border:1px solid #444;background:#fafafa;cursor:pointer}
-    form{max-width:640px}
-  </style>
+  <title>Chỉnh sửa yêu cầu nghỉ phép</title>
+  <link rel="stylesheet" href="<%=request.getContextPath()%>/style.css"/>
 </head>
 <body>
-
 <%
   LeaveRequest r = (LeaveRequest) request.getAttribute("req");
   if (r == null) {
 %>
-<p style="color:red">Request not found.</p>
+  <main class="pixel-layout">
+    <section class="pixel-card" style="max-width:420px;">
+      <div class="pixel-alert error">Không tìm thấy yêu cầu.</div>
+      <a class="pixel-link" href="<%=request.getContextPath()%>/app/request/list?scope=mine">Quay về danh sách</a>
+    </section>
+  </main>
 <% return; }
 
   @SuppressWarnings("unchecked")
@@ -37,67 +31,76 @@
   Long minutesRemaining = (Long) request.getAttribute("minutesRemaining");
 %>
 
-<h2>Edit Request <%= (r.getRequestCode()==null?("#"+r.getRequestId()):r.getRequestCode()) %></h2>
+<main class="container">
+  <section class="pixel-card">
+    <h1 class="pixel-heading">Chỉnh sửa yêu cầu <%= (r.getRequestCode()==null?("#"+r.getRequestId()):r.getRequestCode()) %></h1>
 
-<% if (err != null) { %>
-  <div class="error"><%= err %></div>
-<% } %>
+    <% if (err != null && !err.isBlank()) { %>
+      <div class="pixel-alert error"><%= err %></div>
+    <% } %>
 
-<div class="info">
-  Bạn chỉ có thể chỉnh sửa đơn trong vòng 1 giờ kể từ lúc tạo.
-  <% if (minutesRemaining != null && minutesRemaining > 0) { %>
-    Còn khoảng <strong><%= minutesRemaining %></strong> phút.
-  <% } else { %>
-    Hạn chỉnh sửa sắp kết thúc, vui lòng lưu lại ngay nếu cần thay đổi.
-  <% } %>
-</div>
-
-<form method="post" action="<%=request.getContextPath()%>/app/request/edit">
-  <input type="hidden" name="id" value="<%= r.getRequestId() %>">
-  <input type="hidden" name="returnScope" value="<%= scope %>">
-
-  <div>
-    <label>Leave Type:</label>
-    <select id="typeId" name="typeId" required>
-      <option value="">-- Select type --</option>
-      <%
-        for (LeaveType t : types) {
-          String code = "";
-          try {
-            java.lang.reflect.Method m = t.getClass().getMethod("getTypeCode");
-            Object v = m.invoke(t);
-            code = (v==null) ? "" : v.toString();
-          } catch (Exception ignore) {}
-          boolean selected = t.getLeaveTypeId() == r.getLeaveTypeId();
-      %>
-        <option value="<%=t.getLeaveTypeId()%>" data-code="<%=code%>" <%= selected ? "selected" : "" %>>
-          <%= t.getTypeName() %>
-        </option>
+    <div class="pixel-alert info">
+      Bạn chỉ có thể chỉnh sửa đơn trong vòng 1 giờ kể từ lúc tạo.
+      <% if (minutesRemaining != null && minutesRemaining > 0) { %>
+        Còn khoảng <strong><%= minutesRemaining %></strong> phút.
+      <% } else { %>
+        Hạn chỉnh sửa sắp kết thúc, vui lòng lưu lại ngay nếu cần thay đổi.
       <% } %>
-    </select>
-  </div>
+    </div>
 
-  <div id="reasonGroup" class="<%= (r.getReason()==null || r.getReason().isBlank()) ? "hidden" : "" %>">
-    <label>Reason:</label>
-    <textarea id="reason" name="reason" placeholder="Nhập lý do cụ thể..."><%= r.getReason()==null?"":r.getReason() %></textarea>
-  </div>
+    <form method="post" action="<%=request.getContextPath()%>/app/request/edit" class="pixel-form">
+      <input type="hidden" name="id" value="<%= r.getRequestId() %>">
+      <input type="hidden" name="returnScope" value="<%= scope %>">
 
-  <div>
-    <label>From:</label>
-    <input type="date" id="from" name="from" value="<%= r.getFromDate()==null?"":r.getFromDate() %>" required>
-    <label style="min-width:auto;margin-left:10px">To:</label>
-    <input type="date" id="to" name="to" value="<%= r.getToDate()==null?"":r.getToDate() %>" required>
-  </div>
+      <div class="pixel-form-group">
+        <label for="typeId">Loại nghỉ phép</label>
+        <select class="pixel-input" id="typeId" name="typeId" required>
+          <option value="">-- Chọn loại nghỉ --</option>
+          <%
+            for (LeaveType t : types) {
+              String code = "";
+              try {
+                java.lang.reflect.Method m = t.getClass().getMethod("getTypeCode");
+                Object v = m.invoke(t);
+                code = (v==null) ? "" : v.toString();
+              } catch (Exception ignore) {}
+              boolean selected = t.getLeaveTypeId() == r.getLeaveTypeId();
+          %>
+            <option value="<%=t.getLeaveTypeId()%>" data-code="<%=code%>" <%= selected ? "selected" : "" %>>
+              <%= t.getTypeName() %>
+            </option>
+          <% } %>
+        </select>
+      </div>
 
-  <div style="margin-top:10px">
-    <button class="btn" type="submit">Save changes</button>
-    <button type="button" id="btnCancel">Cancel</button>
-  </div>
-</form>
+      <div id="reasonGroup" class="pixel-form-group <%= (r.getReason()==null || r.getReason().isBlank()) ? "hidden" : "" %>">
+        <label for="reason">Lý do</label>
+        <textarea class="pixel-input" id="reason" name="reason" placeholder="Nhập lý do cụ thể..."><%= r.getReason()==null?"":r.getReason() %></textarea>
+      </div>
+
+      <div class="pixel-form-group pixel-form-inline">
+        <div>
+          <label for="from">Từ ngày</label>
+          <input class="pixel-input" type="date" id="from" name="from" value="<%= r.getFromDate()==null?"":r.getFromDate() %>" required>
+        </div>
+        <div>
+          <label for="to">Đến ngày</label>
+          <input class="pixel-input" type="date" id="to" name="to" value="<%= r.getToDate()==null?"":r.getToDate() %>" required>
+        </div>
+      </div>
+
+      <div class="pixel-form-actions">
+        <button class="pixel-button" type="submit">Lưu thay đổi</button>
+        <button class="pixel-button secondary" type="button" id="btnCancel">Hủy</button>
+      </div>
+    </form>
+  </section>
+</main>
 
 <script>
   (function(){
     var btn = document.getElementById('btnCancel');
+    if (!btn) return;
     btn.addEventListener('click', function(){
       try {
         if (document.referrer && new URL(document.referrer).origin === location.origin) {
@@ -112,7 +115,7 @@
   const selType   = document.getElementById('typeId');
   const grpReason = document.getElementById('reasonGroup');
   const txtReason = document.getElementById('reason');
-const inpFrom   = document.getElementById('from');
+  const inpFrom   = document.getElementById('from');
   const inpTo     = document.getElementById('to');
 
   (function enforceMinDates(){
@@ -143,6 +146,7 @@ const inpFrom   = document.getElementById('from');
       syncTo();
     });
   })();
+
   function toggleReason(){
     const opt = selType.options[selType.selectedIndex];
     if (!opt){
@@ -167,6 +171,5 @@ const inpFrom   = document.getElementById('from');
   selType.addEventListener('change', toggleReason);
   toggleReason();
 </script>
-
 </body>
 </html>

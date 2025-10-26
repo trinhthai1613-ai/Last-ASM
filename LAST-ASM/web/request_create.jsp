@@ -4,123 +4,102 @@
 <html>
 <head>
   <meta charset="UTF-8">
-  <title>Create Leave Request</title>
-  <style>
-    body{font-family:Arial, sans-serif}
-    label{display:inline-block;min-width:90px;margin:8px 0}
-    input, select, textarea{padding:6px}
-    textarea{width:420px;height:90px}
-    .hidden{display:none}
-
-    /* Modal */
-    .backdrop{
-      position:fixed; inset:0; background:#0008; z-index:9998;
-    }
-    .modal{
-      position:fixed; z-index:9999; inset:0; display:flex;
-      align-items:center; justify-content:center;
-    }
-    .modal > div{
-      background:#fff; padding:16px 18px; border-radius:8px; min-width:360px;
-      box-shadow:0 8px 28px rgba(0,0,0,.25);
-    }
-    .modal h3{margin:0 0 8px 0}
-    .actions{margin-top:12px; display:flex; gap:8px}
-    .btn{padding:6px 12px; border:1px solid #444; background:#fafafa; cursor:pointer}
-  </style>
+  <title>Tạo đơn nghỉ phép</title>
+  <link rel="stylesheet" href="<%=request.getContextPath()%>/style.css"/>
 </head>
 <body>
-
-<h2>Create Leave Request</h2>
-
 <%
-  // 'types' do servlet setAttribute đưa xuống: List<LeaveType>
   @SuppressWarnings("unchecked")
   List<LeaveType> types = (List<LeaveType>) request.getAttribute("types");
   if (types == null) types = new ArrayList<>();
 
-  String createdId = request.getParameter("createdId"); // để bật modal
+  String createdId = request.getParameter("createdId");
   String errorMsg = (String) request.getAttribute("error");
-%>
 
-<% if (errorMsg != null && !errorMsg.isBlank()) { %>
-  <div style="background:#fee;border:1px solid #f88;padding:8px 12px;margin-bottom:12px;color:#a00;">
-    <strong>Error:</strong> <%= errorMsg %>
-  </div>
-<% } %>
-
-<%
   java.time.LocalDate today = java.time.LocalDate.now();
   String todayStr = today.toString();
 %>
 
-<form id="frmCreate" method="post" action="<%=request.getContextPath()%>/app/request/create">
-  <div>
-    <label>Leave Type:</label>
-    <select id="typeId" name="typeId" required>
-      <option value="">-- Select type --</option>
-      <%
-        for (LeaveType t : types) {
-          // Nếu model có TypeCode thì in ra luôn data-code để JS nhận biết “OTHER”
-          String code = "";
-          try { 
-            java.lang.reflect.Method m = t.getClass().getMethod("getTypeCode");
-            Object v = m.invoke(t);
-            code = (v==null) ? "" : v.toString();
-          } catch (Exception ignore) {}
-      %>
-        <option value="<%=t.getLeaveTypeId()%>" data-code="<%=code%>">
-          <%= t.getTypeName() %>
-        </option>
-      <% } %>
-    </select>
-  </div>
+<main class="container">
+  <section class="pixel-card">
+    <h1 class="pixel-heading">Tạo đơn nghỉ phép</h1>
 
-  <div id="reasonGroup" class="hidden">
-    <label>Reason:</label>
-    <textarea id="reason" name="reason" placeholder="Nhập lý do cụ thể..."></textarea>
-  </div>
+    <% if (errorMsg != null && !errorMsg.isBlank()) { %>
+      <div class="pixel-alert error" role="alert">
+        <strong>Lỗi:</strong> <%= errorMsg %>
+      </div>
+    <% } %>
 
-  <div>
-    <label>From:</label>
-     <input type="date" id="from" name="from" required min="<%= todayStr %>">
-    <label style="min-width:auto;margin-left:10px">To:</label>
-    <input type="date" id="to" name="to" required min="<%= todayStr %>">
-  </div>
+    <form id="frmCreate" method="post" action="<%=request.getContextPath()%>/app/request/create" class="pixel-form">
+      <div class="pixel-form-group">
+        <label for="typeId">Loại nghỉ phép</label>
+        <select class="pixel-input" id="typeId" name="typeId" required>
+          <option value="">-- Chọn loại nghỉ --</option>
+          <%
+            for (LeaveType t : types) {
+              String code = "";
+              try {
+                java.lang.reflect.Method m = t.getClass().getMethod("getTypeCode");
+                Object v = m.invoke(t);
+                code = (v==null) ? "" : v.toString();
+              } catch (Exception ignore) {}
+          %>
+            <option value="<%=t.getLeaveTypeId()%>" data-code="<%=code%>">
+              <%= t.getTypeName() %>
+            </option>
+          <% } %>
+        </select>
+      </div>
 
-  <div style="margin-top:10px">
-    <button class="btn" type="submit" id="btnSend">Send</button>
-    <button type="button" id="btnBack">Back</button>
+      <div id="reasonGroup" class="pixel-form-group hidden">
+        <label for="reason">Lý do</label>
+        <textarea class="pixel-input" id="reason" name="reason" placeholder="Nhập lý do cụ thể..."></textarea>
+      </div>
+
+      <div class="pixel-form-group pixel-form-inline">
+        <div>
+          <label for="from">Từ ngày</label>
+          <input class="pixel-input" type="date" id="from" name="from" required min="<%= todayStr %>">
+        </div>
+        <div>
+          <label for="to">Đến ngày</label>
+          <input class="pixel-input" type="date" id="to" name="to" required min="<%= todayStr %>">
+        </div>
+      </div>
+
+      <div class="pixel-form-actions">
+        <button class="pixel-button" type="submit" id="btnSend">Gửi yêu cầu</button>
+        <button class="pixel-button secondary" type="button" id="btnBack">Quay lại</button>
+      </div>
+    </form>
+  </section>
+</main>
+
 <script>
   (function () {
     var btn = document.getElementById('btnBack');
+    if (!btn) return;
     btn.addEventListener('click', function () {
-      // Nếu có trang trước cùng origin -> quay lại
       try {
         if (document.referrer && new URL(document.referrer).origin === location.origin) {
           history.back();
           return;
         }
-      } catch (e) { /* bỏ qua */ }
-      // Fallback: về trang My Requests (route bạn đã có)
+      } catch (e) {}
       location.href = '<%=request.getContextPath()%>/app/request/list?scope=mine';
     });
   })();
 </script>
 
-  </div>
-</form>
-
 <% if (createdId != null && !createdId.isBlank()) { %>
-  <!-- Modal success -->
-  <div class="backdrop"></div>
-  <div class="modal">
-    <div>
-      <h3>Tạo đơn thành công!</h3>
-      <p>Request ID: <strong><%= createdId %></strong></p>
-      <div class="actions">
-        <button class="btn" onclick="location.href='<%=request.getContextPath()%>/app/request/create'">Tạo tiếp</button>
-        <button class="btn" onclick="location.href='<%=request.getContextPath()%>/app/request/list?scope=mine'">Về “My Requests”</button>
+  <div class="pixel-modal-backdrop"></div>
+  <div class="pixel-modal">
+    <div class="pixel-card">
+      <h3 class="pixel-heading" style="font-size: 1.25rem;">Tạo đơn thành công!</h3>
+      <p>Mã yêu cầu: <strong><%= createdId %></strong></p>
+      <div class="pixel-form-actions">
+        <button class="pixel-button" onclick="location.href='<%=request.getContextPath()%>/app/request/create'">Tạo thêm</button>
+        <button class="pixel-button secondary" onclick="location.href='<%=request.getContextPath()%>/app/request/list?scope=mine'">Về “Yêu cầu của tôi”</button>
       </div>
     </div>
   </div>
@@ -133,7 +112,6 @@
   const inpFrom   = document.getElementById('from');
   const inpTo     = document.getElementById('to');
 
-  // Không cho chọn ngày quá khứ
   (function lockPast(){
     const today = new Date();
     const y = today.getFullYear();
@@ -143,8 +121,9 @@
     inpFrom.min = min;
     inpFrom.setAttribute('min', min);
     inpTo.min   = min;
-       inpTo.setAttribute('min', min);
+    inpTo.setAttribute('min', min);
   })();
+
   function syncToMin(){
     const base = inpFrom.value || inpFrom.min;
     if (base) {
@@ -158,8 +137,6 @@
   inpFrom.addEventListener('change', syncToMin);
   syncToMin();
 
-
-  // Khi chọn “Khác” -> hiện Reason (dựa theo text hoặc data-code="OTHER")
   function toggleReason(){
     const opt = selType.options[selType.selectedIndex];
     const code = (opt.getAttribute('data-code') || '').toUpperCase();
@@ -176,7 +153,6 @@
     }
   }
   selType.addEventListener('change', toggleReason);
-  // Gọi 1 lần để áp trạng thái ban đầu
   toggleReason();
 </script>
 </body>
